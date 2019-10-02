@@ -13,6 +13,11 @@ inline void write_int(std::ofstream& out, int val) {
     out.write(reinterpret_cast<char*>(&val), sizeof(val));
 }
 
+const int WH = 512;
+const int size = 64;
+const int NL = 1200, NR = 2700;
+const QString name = "data_train";
+const int cntsq = WH/size;
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
@@ -20,9 +25,9 @@ int main(int argc, char *argv[])
     int mx = 0;
 
     std::ios::sync_with_stdio(0);
-    QString read_path = R"(C:\Users\Main\Base\huawei\data_test1_blank\64)";
-    QString write_path = R"(C:\Users\Main\Base\huawei\parsed\data_test1_blank\64)";
-    for (int n = 2400; n < 2700; ++n) {
+    QString read_path = R"(C:\Users\Main\Base\huawei\)"+name+"\\"+QString::number(size);
+    QString write_path = R"(C:\Users\Main\Base\huawei\parsed\)"+name+"\\"+QString::number(size);
+    for (int n = NL; n < NR; ++n) {
         QString lol = QString::number(n);
         while (lol.size() < 4)
             lol = "0"+lol;

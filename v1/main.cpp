@@ -20,6 +20,7 @@ std::mt19937 gen(3711);
 const int WH = 512;
 const int size = 64;
 const int NL = 1200, NR = 2700;
+const string name = "data_train";
 const int cntsq = WH/size;
 
 ll best_estim = 9e18;
@@ -167,16 +168,39 @@ std::string get_number(int n) {
         res = "0"+res;
     return res;
 }
-void write(std::ofstream& out, int n) {
-    out << get_number(n) << ".png\n";
+
+const int IM = 3000;
+ll best_in_file[IM];
+std::vector <int> best_perms[IM];
+void write(std::ofstream& out, int cur_id) {
+    if (best_estim >= )
+    out << get_number(cur_id) << "";
     for (int i = 0; i < cntsq; ++i)
     for (int j = 0; j < cntsq; ++j)
         out << P[i][j] << " ";
     out << "\n";
 }
+
+//format:
+//image_id best_estimation_found
+//perm1 perm2 ... perm[cntsq*cntsq]
+void make_bests(std::ifstream& in) {
+    int im_id;
+    while (in >> im_id) {
+        ll best_found;
+        in >> best_found;
+
+        best_in_file[im_id] = best_found;
+        best_perms[im_id].resize(cntsq*cntsq);
+        for (int i = 0; i < ctnsq; ++i)
+        for (int j = 0; j < cntsq; ++j)
+            in >> best_perms[im_id][i*cntsq+j];
+    }
+}
+
 int main(){
     std::ios::sync_with_stdio(0);
-    std::string binput = R"(C:\Users\Main\Base\huawei\parsed\data_train\)"+std::to_string(size);
+    std::string binput = R"(C:\Users\Main\Base\huawei\parsed\)"+name+"\\"+std::to_string(size);
     std::string output = binput+"\\answers.txt";
 
     std::ofstream out(output);
