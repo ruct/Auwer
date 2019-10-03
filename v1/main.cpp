@@ -20,7 +20,7 @@ std::mt19937 gen(3711);
 const int WH = 512;
 const int size = 64;
 const int NL = 1200, NR = 2700;
-const string name = "data_train";
+const std::string name = "data_train";
 const int cntsq = WH/size;
 
 ll best_estim = 9e18;
