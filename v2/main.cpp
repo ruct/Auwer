@@ -1,3 +1,4 @@
+#include <tuple>
 #include <random>
 #include <fstream>
 #include <assert.h>
@@ -153,21 +154,25 @@ struct chromo {
     }
 };
 
-//  GA_augmented
+//  GA_fitness
 namespace GA {
     int dx[] = {0, 0, 1, -1},
         dy[] = {1, -1, 0, 0};
     //L->R, R->L, U->D, D->U;
 
     //  Initial coordinates;
+    int bbuddy[4*cntsq*cntsq];
     ld fitLR[cntsq*cntsq][cntsq*cntsq];
     ld fitUD[cntsq*cntsq][cntsq*cntsq];
 
     void clear() {
-        for (int i = 0; i < cntsq*cntsq; ++i)
-        for (int j = 0; j < cntsq*cntsq; ++j) {
-            fitLR[i][j] = -1;
-            fitUD[i][j] = -1;
+        for (int i = 0; i < cntsq*cntsq; ++i) {
+            for (int d = 0; d < 4; ++d)
+                bbuddy[i*4+d] = 0;
+            for (int j = 0; j < cntsq*cntsq; ++j) {
+                fitLR[i][j] = -1;
+                fitUD[i][j] = -1;
+            }
         }
     }
 
@@ -201,6 +206,13 @@ namespace GA {
         else return vertsubs(b, a);
     }
 
+    //  Initial coordinates;
+    inline ld pair_match(int fst, int snd, int dir) {
+        if (dir&1) std::swap(fst, snd);
+        if (dir < 0) return fitLR[fst][snd];
+        else return fitUD[fst][snd];
+    }
+
     void recalc() {
         for (int fst = 0; fst < cntsq*cntsq; ++fst)
         for (int snd = 0; snd < cntsq*cntsq; ++snd) {
@@ -210,13 +222,16 @@ namespace GA {
             fitUD[fst][snd] = vertsubs(picture[fst/cntsq][fst%cntsq],
                                        picture[snd/cntsq][snd%cntsq]);
         }
+        for (int fst = 0; fst < cntsq*cntsq; ++fst) {
+            for (int d = 0; d < 4; ++d) {
+                std::pair <ld, int> mn = {1e18, -1};
+                for (int snd = 0; snd < cntsq*cntsq; ++snd)
+                    mn = std::min(mn, {pair_match(fst, snd, d), snd});
+                bbuddy[fst*4+d] = mn.second;
+            }
+        }
     }
-    //  Initial coordinates;
-    inline ld pair_match(int fst, int snd, int dir) {
-        if (dir&1) std::swap(fst, snd);
-        if (dir < 0) return fitLR[fst][snd];
-        else return fitUD[fst][snd];
-    }
+
 
     ld fit_cost(chromo& o) {
         if (o.eval != -1)
@@ -235,9 +250,7 @@ namespace GA {
 }
 
 #include <algorithm>
-//  Ga_algorithm
-const int FILTER = 40;
-chromo scent[FILTER];
+//  Ga_random
 namespace GA {
     void stupid_shuffle(chromo& trg) {
         std::vector <uint16_t> lol(cntsq*cntsq);
@@ -259,13 +272,137 @@ namespace GA {
                     trg.wher[trg.perm[i2][j2]]);
             std::swap(trg.perm[i1][j1], trg.perm[i2][j2]);
         }
+        trg.eval = -1;
     }
 
-//    void init() {
-//        for (int i = 0; i < FILTER; ++i) {
-//            stupid_shuffle(scent[i]);
-//        }
-//    }
+}
+
+const int FILTER = 40;
+chromo scent[FILTER];
+const int ST_FEW_SWAPS = 50;
+const int FSKIP = 10;
+namespace GA {
+
+    void init() {
+        for (int i = 0; i < FILTER; ++i) {
+            stupid_shuffle(scent[i]);
+            for (int j = 0; j < ST_FEW_SWAPS; ++j) {
+                chromo cur = scent[i];
+                few_swaps(cur, 3);
+                if (fit_cost(cur) > fit_cost(scent[i]))
+                    scent[i] = cur;
+            }
+        }
+    }
+
+    const int tcntsq = 2*cntsq+1;
+    struct temp_chromo {
+        int mni, mxi, mnj, mxj;
+        int16_t perm[tcntsq][tcntsq];
+        temp_chromo() {
+            for (int i = 0; i < tcntsq; ++i)
+            for (int j = 0; j < tcntsq; ++j)
+                perm[i][j] = -1;
+
+            mni = mnj = tcntsq;
+            mxi = mxj = -1;
+        }
+
+        void set(int i, int j, int val) {
+            perm[i][j] = val;
+            mni = std::min(mni, i),
+            mxi = std::max(mxi, i);
+            mnj = std::min(mnj, j),
+            mxj = std::max(mxj, j);
+        }
+
+        bool can(int i, int j) {
+            if (perm[i][j] == -1)
+                return false;
+
+            int _mni = std::min(mni, i),
+                _mxi = std::max(mxi, i);
+            int _mnj = std::min(mnj, j),
+                _mxj = std::max(mxj, j);
+
+            if (_mxi-_mni+1 > cntsq)
+                return false;
+            if (_mxj-_mnj+1 > cntsq)
+                return false;
+            return true;
+        }
+    };
+
+    int del_rnd(std::vector <int>& v) {
+        int i = gen()%v.size();
+        std::swap(v[i], v.back());
+        i = v.back();
+        v.pop_back();
+        return i;
+    }
+
+    void cross(chromo& a, chromo& b, chromo& t) {
+        temp_chromo temp;
+        std::vector <int> lft(cntsq*cntsq);
+        std::iota(lft.begin(), lft.end(), 0);
+
+        int placed = 1;
+        char used[cntsq*cntsq];
+        for (int i = 0; i < cntsq*cntsq; ++i)
+            used[i] = 0;
+        std::vector <std::pair <int, int> > bound = {{cntsq, cntsq}};
+        used[temp.perm[cntsq][cntsq] = del_rnd(lft)] = 1;
+
+        auto bound_update = [&dx, &dy, &bound]() {
+
+        };
+
+        while (true) {
+            //{index in number, direction, 2-agreed id}
+            std::vector <std::tuple <int, int, int> > suitable;
+
+            for (int TT = 0; TT < bound.size(); ++TT) {
+                int i = bound[TT].first, j = bound[TT].second;
+
+                int cur_id = temp.perm[i][j];
+                int pos1 = a.wher[cur_id],
+                    pos2 = b.wher[cur_id];
+
+                for (int d = 0; d < 4; ++d) {
+                    if (!temp.can(i+dx[d], j+dy[d]))
+                        continue;
+
+                    int ni1 = (pos1/cntsq)+dx[d], nj1 = (pos1%cntsq)+dy[d];
+                    int ni2 = (pos2/cntsq)+dx[d], nj2 = (pos2%cntsq)+dy[d];
+
+                    if (ni1 < 0 || ni1 >= cntsq) continue;
+                    if (nj1 < 0 || nj1 >= cntsq) continue;
+                    if (ni2 < 0 || ni2 >= cntsq) continue;
+                    if (nj2 < 0 || nj2 >= cntsq) continue;
+                    if (a.perm[ni1][nj1] == b.perm[ni2][nj2] && !used[a.perm[ni1][nj1]])
+                        suitable.emplace_back(TT, d, a.perm[ni1][nj1]);
+                }
+            }
+
+            if (suitable.size() && gen()%100 > FSKIP) {
+                int srnd = gen()%suitable.size();
+                int TT = std::get<0> (suitable[srnd]);
+                int id = std::get<2> (suitable[srnd]);
+                int d = std::get<1> (suitable[srnd]);
+
+                int i = bound[TT].first,
+                    j = bound[TT].second;
+
+                ++placed;
+                used[id] = 1;
+                temp.set(i+dx[d], j+dy[d], id);
+                lft.erase(std::find(lft.begin(), lft.end(), id));
+                bound_update();
+                continue;
+            }
+        }
+    }
+
 }
 
 int main() {
