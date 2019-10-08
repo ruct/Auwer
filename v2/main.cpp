@@ -278,7 +278,7 @@ namespace GA {
 
 const int GENS = 100;
 const int BEST_POINTS_SIZE = 2;
-const int BEST_POINTS_CHANCE = 10;
+const int BEST_POINTS_CHANCE = 20;
 const int REAP = 4;
 const int PEACE = 1000;
 chromo scent[PEACE];
@@ -655,12 +655,12 @@ namespace GA {
         t.mk_wher();
 
         char lol = 0;
-        for (int i = 0; i < best_starts.size(); ++i)
-            if (best_starts[i].second == START_POINT) {
-                best_starts[i].first = fit_cost(t);
-                lol = 1;
-                break;
-            }
+//        for (int i = 0; i < best_starts.size(); ++i)
+//            if (best_starts[i].second == START_POINT) {
+//                best_starts[i].first = fit_cost(t);
+//                lol = 1;
+//                break;
+//            }
         if (!lol)
             best_starts.emplace_back(fit_cost(t), START_POINT);
         std::sort(best_starts.begin(), best_starts.end());
