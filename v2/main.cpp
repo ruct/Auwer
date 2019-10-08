@@ -130,6 +130,13 @@ struct chromo {
     int16_t wher[cntsq*cntsq];
     ld eval = -1;
 
+    bool operator!=(chromo const& o) const {
+        for (int i = 0; i < cntsq; ++i)
+        for (int j = 0; j < cntsq; ++j)
+            if (perm[i][j] != o.perm[i][j])
+                return true;
+        return false;
+    }
     void mk_wher() {
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
@@ -217,8 +224,9 @@ namespace GA {
             for (int d = 0; d < 4; ++d) {
                 std::pair <ld, int> mn = {1e18, -1};
                 for (int snd = 0; snd < cntsq*cntsq; ++snd)
-                    mn = std::min(mn, {pair_match(fst, snd, d), snd});
-                bbuddy[fst*4+d] = mn.second;
+                    if (fst != snd)
+                        mn = std::min(mn, {pair_match(fst, snd, d), snd});
+                bbuddy[4*fst+d] = mn.second;
             }
         }
     }
@@ -268,24 +276,29 @@ namespace GA {
 
 }
 
-const int GENS = 200;
+const int GENS = 100;
+const int BEST_POINTS_SIZE = 2;
+const int BEST_POINTS_CHANCE = 10;
 const int REAP = 4;
 const int PEACE = 1000;
 chromo scent[PEACE];
 const int ST_FEW_SWAPS = 50;
 const int FSKIP = 5;
 const int TSKIP = 5;
+const int FIRST_PHASE_AFTER = 5;
+std::vector <std::pair <ld, int> > best_starts;
+
 namespace GA {
 
     void init() {
         for (int i = 0; i < PEACE; ++i) {
             stupid_shuffle(scent[i]);
-            for (int j = 0; j < ST_FEW_SWAPS; ++j) {
-                chromo cur = scent[i];
-                few_swaps(cur, 3);
-                if (fit_cost(cur) > fit_cost(scent[i]))
-                    scent[i] = cur;
-            }
+//            for (int j = 0; j < ST_FEW_SWAPS; ++j) {
+//                chromo cur = scent[i];
+//                few_swaps(cur, 3);
+//                if (fit_cost(cur) > fit_cost(scent[i]))
+//                    scent[i] = cur;
+//            }
         }
     }
 
@@ -422,7 +435,11 @@ namespace GA {
 //                std::cout << "M" << std::endl;
             };
 
-        place_fragment(cntsq, cntsq, gen()%(cntsq*cntsq));
+        int START_POINT = gen()%(cntsq*cntsq);
+        if (best_starts.size() && gen()%100 <= BEST_POINTS_CHANCE) {
+            START_POINT = best_starts[gen()%best_starts.size()].second;
+        }
+        place_fragment(cntsq, cntsq, START_POINT);
 
         while (placed < cntsq*cntsq) {
 //            if (WRITE_CROSS && placed % 3 == 0)
@@ -443,7 +460,7 @@ namespace GA {
             //{index in number, direction, suitable_id}
             std::vector <std::tuple <int, int, int> > suitable;
             ///  first phase
-            if (CUR_GEN > 1){
+            if (CUR_GEN > FIRST_PHASE_AFTER){
                 for (int TT = 0; TT < bound.size(); ++TT) {
                     int i = bound[TT].first, j = bound[TT].second;
 
@@ -518,54 +535,11 @@ namespace GA {
             ///second phase
             {
                 suitable.clear();
-                //  best {direction, TT}
-                std::vector <int> best_for_bb(4*cntsq*cntsq);
 
-//                std::cout << "START" << std::endl;
-                for (int BB : lft) {
-                    ld mn_for_dirs[4] = {1e9, 1e9, 1e9, 1e9};
-                    int mn_for_dirs_id[4] = {-1, -1, -1, -1};
-
-                    for (int TT = 0; TT < bound.size(); ++TT) {
-                        int i = bound[TT].first,
-                            j = bound[TT].second;
-
-                        for (int d = 0; d < 4; ++d) {
-                            if (!temp.can(i+dx[d], j+dy[d]))
-                                continue;
-                            ld cur_match = pair_match(BB, temp.perm[i][j], d^1);
-                            if (cur_match < mn_for_dirs[d]) {
-                                mn_for_dirs[d] = cur_match;
-                                mn_for_dirs_id[d] = TT;
-                            }
-                        }
-                    }
-                    for (int d = 0; d < 4; ++d)
-                        best_for_bb[4*BB+d] = mn_for_dirs_id[d];
-                }
-//                std::cout << "MIDDLE" << std::endl;
                 for (int TT = 0; TT < bound.size(); ++TT) {
                     int i = bound[TT].first, j = bound[TT].second;
 
                     int cur_id = temp.perm[i][j];
-                    ld mn_for_dirs[4] = {1e9, 1e9, 1e9, 1e9};
-                    int mn_for_dirs_id[4] = {-1, -1, -1, -1};
-
-//                    std::cout << "finding best BB" << std::endl;
-                    for (int BB = 0; BB < lft.size(); ++BB) {
-                        for (int d = 0; d < 4; ++d) {
-                            if (!temp.can(i+dx[d], j+dy[d]))
-                                continue;
-                            ld cur_match = pair_match(cur_id, lft[BB], d);
-                            if (cur_match < mn_for_dirs[d]) {
-                                mn_for_dirs[d] = cur_match;
-                                mn_for_dirs_id[d] = BB;
-                            }
-                        }
-                    }
-//                    std::cout << "found best BB " << std::endl;
-
-
                     int pos1 = a.wher[cur_id],
                         pos2 = b.wher[cur_id];
 
@@ -578,13 +552,13 @@ namespace GA {
 
                         if (std::min(ni1, nj1) >= 0 && std::max(ni1, nj1) < cntsq) {
                             int id1 = a.perm[ni1][nj1];
-                            if (!used[id1] && mn_for_dirs_id[d] == id1 && best_for_bb[4*id1+d] == TT) {
+                            if (!used[id1] && bbuddy[4*cur_id+d] == id1 && bbuddy[4*id1+(d^1)] == cur_id) {
                                 suitable.emplace_back(TT, d, id1);
                             }
                         }
                         if (std::min(ni2, nj2) >= 0 && std::max(ni2, nj2) < cntsq) {
                             int id2 = b.perm[ni2][nj2];
-                            if (!used[id2] && mn_for_dirs_id[d] == id2 && best_for_bb[4*id2+d] == TT) {
+                            if (!used[id2] && bbuddy[4*cur_id+d] == id2 && bbuddy[4*id2+(d^1)] == cur_id) {
                                 suitable.emplace_back(TT, d, id2);
                             }
                         }
@@ -680,32 +654,43 @@ namespace GA {
         t.eval = -1;
         t.mk_wher();
 
-        ld F1 = fit_cost(a), F2 = fit_cost(b);
+        char lol = 0;
+        for (int i = 0; i < best_starts.size(); ++i)
+            if (best_starts[i].second == START_POINT) {
+                best_starts[i].first = fit_cost(t);
+                lol = 1;
+                break;
+            }
+        if (!lol)
+            best_starts.emplace_back(fit_cost(t), START_POINT);
+        std::sort(best_starts.begin(), best_starts.end());
+        while (best_starts.size() > BEST_POINTS_SIZE)
+            best_starts.pop_back();
 //        std::cout << "CROSSSS " << F1 << " " << F2 << " " << fit_cost(t) << std::endl;
-        a.eval = b.eval = -1;
-        ld S1 = fit_cost(a), S2 = fit_cost(b);
-
-        if (F1 != S1 || F2 != S2) {
-            exit(-1);
-        }
     }
 
     void breed() {
 //        std::cout << "start breeding" << std::endl;
 
-        int size = 0;
+        int sz = 0;
         chromo cur[REAP];
         for (int i = 0; i < REAP; ++i)
             cur[i] = scent[i];
 
-        while (size < PEACE) {
-            for (int i = 0; size < PEACE && i < REAP; ++i)
-            for (int j = 0; size < PEACE && j < REAP; ++j) {
-                if (i == j) continue;
-                cross(cur[i], cur[j], scent[size]);
-                ++size;
-            }
+        while (sz < PEACE) {
+            int i = gen()%REAP,
+                j = gen()%REAP;
+            cross(cur[i], cur[j], scent[sz]);
+            ++sz;
         }
+//        while (sz < PEACE) {
+//            for (int i = 0; sz < PEACE && i < REAP; ++i)
+//            for (int j = 0; sz < PEACE && j < REAP; ++j) {
+//                if (i == j) continue;
+//                cross(cur[i], cur[j], scent[sz]);
+//                ++sz;
+//            }
+//        }
 
 //        while (size < (PEACE)/2) {
 //            for (int i = 0; i < REAP; i += 2) {
@@ -716,15 +701,14 @@ namespace GA {
 //            }
 ////            std::cout << size << std::endl;
 //        }
-        while (size < PEACE) {
-            int i = gen()%size,
-                j = gen()%(size-1);
-            if (j >= i) ++j;
-            cross(scent[i], scent[j], scent[size]);
-            ++size;
-        }
+//        while (size < PEACE) {
+//            int i = gen()%size,
+//                j = gen()%(size-1);
+//            if (j >= i) ++j;
+//            cross(scent[i], scent[j], scent[size]);
+//            ++size;
+//        }
 
-        std::shuffle(scent, scent+PEACE, gen);
 //        std::cout << "breed ended" << std::endl;
 //        for (int i = 0; i < PEACE; ++i)
 //            scent[i] = scent[i+REAP];
@@ -736,18 +720,23 @@ namespace GA {
         for (int i = 0; i < PEACE; ++i)
             _scent[i] = {fit_cost(scent[i]), i};
         std::sort(_scent.begin(), _scent.end());
-        for (int i = 0; i < REAP; ++i)
-            std::cout << _scent[i].first << " ";
-        std::cout << std::endl;
 //        scent[0].write();
 
         std::vector <chromo> buf(REAP);
-        for (int i = 0; i < REAP; ++i)
-            buf[i] = scent[_scent[i].second];
+
+        int sz = 0;
+        for (int i = 0; sz < REAP; ++i)
+            if (!i || _scent[i].first > _scent[i-1].first+10) {
+                buf[sz] = scent[_scent[i].second];
+                ++sz;
+            }
         for (int i = 0; i < REAP; ++i)
             scent[i] = buf[i];
 
-//        std::cout << "harvested" << std::endl;
+        std::cout << "harvested" << std::endl;
+        for (int i = 0; i < REAP; ++i)
+            std::cout << fit_cost(scent[i]) << " ";
+        std::cout << std::endl;
     }
 
     int16_t GA_ans[cntsq][cntsq];
