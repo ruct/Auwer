@@ -14,8 +14,8 @@ inline void write_int(std::ofstream& out, int val) {
 }
 
 const int WH = 512;
-const int size = 64;
-const int NL = 1200, NR = 2700;
+const int size = 32;
+const int NL = 600, NR = 1200;
 const QString name = "data_train";
 const int cntsq = WH/size;
 int main(int argc, char *argv[])

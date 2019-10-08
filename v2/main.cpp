@@ -1,4 +1,5 @@
 #include <tuple>
+#include <time.h>
 #include <random>
 #include <fstream>
 #include <assert.h>
@@ -89,6 +90,7 @@ namespace augm {
 
 typedef double ld;
 #define sqr(a) ((a)*(a))
+#define cbr(a) ((a)*(a)*(a))
 
 
 int16_t dfans_perm[cntsq][cntsq];
@@ -176,23 +178,35 @@ namespace GA {
     ld horisubs(square const& lft, square const& rht) {
         ld diff[] = {0, 0, 0};
         for (int i = 0; i < size; ++i) {
-            diff[0] += sqr(ld(lft.r[i][size-1])-ld(rht.r[i][0]));
-            diff[1] += sqr(ld(lft.g[i][size-1])-ld(rht.g[i][0]));
-            diff[2] += sqr(ld(lft.b[i][size-1])-ld(rht.b[i][0]));
+            diff[0] += cbr(abs(ld(lft.r[i][size-1])-ld(rht.r[i][0])));
+            diff[1] += cbr(abs(ld(lft.g[i][size-1])-ld(rht.g[i][0])));
+            diff[2] += cbr(abs(ld(lft.b[i][size-1])-ld(rht.b[i][0])));
+//            diff[0] += sqr(ld(lft.r[i][size-1])-ld(rht.r[i][0]));
+//            diff[1] += sqr(ld(lft.g[i][size-1])-ld(rht.g[i][0]));
+//            diff[2] += sqr(ld(lft.b[i][size-1])-ld(rht.b[i][0]));
         }
 
-        ld res = sqrtl(diff[0]+diff[1]+diff[2]);
+        ld res = cbrt(diff[0]+diff[1]+diff[2]);
+//        std::cout << "REES1 " << res << " " << diff[0] << " " << diff[1] << " " << diff[2] << std::endl;
+        assert(res >= 0);
+//        ld res = sqrtl(diff[0]+diff[1]+diff[2]);
         return res;
     }
     ld vertsubs(square const& up, square const& dw) {
         ld diff[] = {0, 0, 0};
         for (int j = 0; j < size; ++j) {
-            diff[0] += sqr(ld(up.r[size-1][j]-ld(dw.r[0][j])));
-            diff[1] += sqr(ld(up.g[size-1][j]-ld(dw.g[0][j])));
-            diff[2] += sqr(ld(up.b[size-1][j]-ld(dw.b[0][j])));
+            diff[0] += cbr(abs(ld(up.r[size-1][j]-ld(dw.r[0][j]))));
+            diff[1] += cbr(abs(ld(up.g[size-1][j]-ld(dw.g[0][j]))));
+            diff[2] += cbr(abs(ld(up.b[size-1][j]-ld(dw.b[0][j]))));
+//            diff[0] += sqr(ld(up.r[size-1][j]-ld(dw.r[0][j])));
+//            diff[1] += sqr(ld(up.g[size-1][j]-ld(dw.g[0][j])));
+//            diff[2] += sqr(ld(up.b[size-1][j]-ld(dw.b[0][j])));
         }
 
-        ld res = sqrtl(diff[0]+diff[1]+diff[2]);
+        ld res = cbrt(diff[0]+diff[1]+diff[2]);
+//        std::cout << "REES2 " << res << " " << diff[0] << " " << diff[1] << " " << diff[2] << std::endl;
+        assert(res >= 0);
+//        ld res = sqrtl(diff[0]+diff[1]+diff[2]);
         return res;
     }
 
@@ -276,29 +290,44 @@ namespace GA {
 
 }
 
-const int GENS = 100;
-const int BEST_POINTS_SIZE = 2;
-const int BEST_POINTS_CHANCE = 20;
-const int REAP = 4;
+const int GENS = 70;
+const int BEST_POINTS_SIZE = 3;
+const int BEST_POINTS_CHANCE = 10;
+const int REAP = 20;
 const int PEACE = 1000;
 chromo scent[PEACE];
-const int ST_FEW_SWAPS = 50;
-const int FSKIP = 5;
-const int TSKIP = 5;
-const int FIRST_PHASE_AFTER = 5;
+const int ST_FEW_SWAPS = 3;
+const int FSKIP = 6;
+const int TSKIP = 6;
+const int CHANCE_HARE = 20;
+const int FIRST_PHASE_AFTER = 20;
 std::vector <std::pair <ld, int> > best_starts;
+
+struct TimeLogger {
+    ld start;
+    ld* target;
+    TimeLogger() = delete;
+    explicit TimeLogger(ld* target):
+        target(target), start(clock()) {};
+    ~TimeLogger() {
+        *target += ld(clock()-start)/ld(CLOCKS_PER_SEC);
+    }
+};
+ld fphase_time;
+ld sphase_time;
+ld tphase_time;
 
 namespace GA {
 
     void init() {
         for (int i = 0; i < PEACE; ++i) {
             stupid_shuffle(scent[i]);
-//            for (int j = 0; j < ST_FEW_SWAPS; ++j) {
-//                chromo cur = scent[i];
-//                few_swaps(cur, 3);
-//                if (fit_cost(cur) > fit_cost(scent[i]))
-//                    scent[i] = cur;
-//            }
+            for (int j = 0; j < ST_FEW_SWAPS; ++j) {
+                chromo cur = scent[i];
+                few_swaps(cur, 2);
+                if (fit_cost(cur) > fit_cost(scent[i]))
+                    scent[i] = cur;
+            }
         }
     }
 
@@ -436,7 +465,7 @@ namespace GA {
             };
 
         int START_POINT = gen()%(cntsq*cntsq);
-        if (best_starts.size() && gen()%100 <= BEST_POINTS_CHANCE) {
+        if (best_starts.size() && gen()%100 < BEST_POINTS_CHANCE) {
             START_POINT = best_starts[gen()%best_starts.size()].second;
         }
         place_fragment(cntsq, cntsq, START_POINT);
@@ -461,6 +490,8 @@ namespace GA {
             std::vector <std::tuple <int, int, int> > suitable;
             ///  first phase
             if (CUR_GEN > FIRST_PHASE_AFTER){
+                TimeLogger first_phase_time(&fphase_time);
+
                 for (int TT = 0; TT < bound.size(); ++TT) {
                     int i = bound[TT].first, j = bound[TT].second;
 
@@ -494,7 +525,7 @@ namespace GA {
                     std::cout << "First phase " << suitable.size() << std::endl;
 
                 if (suitable.size()) {
-                    if (gen()%100 <= FSKIP) {
+                    if (gen()%100 < FSKIP) {
                         int dirs[] = {0, 1, 2, 3};
                         std::shuffle(dirs, dirs+4, gen);
 
@@ -534,6 +565,7 @@ namespace GA {
 
             ///second phase
             {
+                TimeLogger second_phase_time(&sphase_time);
                 suitable.clear();
 
                 for (int TT = 0; TT < bound.size(); ++TT) {
@@ -588,12 +620,13 @@ namespace GA {
 
             ///third phase
             {
+                TimeLogger third_phase_time(&tphase_time);
                 if (WRITE_CROSS) {
                     std::cout << "third - start" << std::endl;
                     std::cout << bound.size() << std::endl;
                 }
 
-                if (gen()%100 <= TSKIP) {
+                if (gen()%100 < TSKIP) {
                     int dirs[] = {0, 1, 2, 3};
                     std::shuffle(dirs, dirs+4, gen);
 
@@ -680,6 +713,8 @@ namespace GA {
         while (sz < PEACE) {
             int i = gen()%REAP,
                 j = gen()%REAP;
+            if (i == j)
+                continue;
             cross(cur[i], cur[j], scent[sz]);
             ++sz;
         }
@@ -726,17 +761,22 @@ namespace GA {
 
         int sz = 0;
         for (int i = 0; sz < REAP; ++i)
-            if (!i || _scent[i].first > _scent[i-1].first+10) {
+            if (_scent[i+1].first > _scent[i].first+10) {
                 buf[sz] = scent[_scent[i].second];
                 ++sz;
             }
         for (int i = 0; i < REAP; ++i)
             scent[i] = buf[i];
+        if (gen()%100 < CHANCE_HARE) {
+            int i = gen()%REAP;
+            std::swap(scent[0], scent[i]);
+        }
 
         std::cout << "harvested" << std::endl;
         for (int i = 0; i < REAP; ++i)
             std::cout << fit_cost(scent[i]) << " ";
         std::cout << std::endl;
+        std::shuffle(scent, scent+REAP, gen);
     }
 
     int16_t GA_ans[cntsq][cntsq];
@@ -843,6 +883,8 @@ int main() {
     for (int i = 0; i < cntsq; ++i)
     for (int j = 0; j < cntsq; ++j)
         ans_out << GA::GA_ans[i][j] << " ";
+    std::cout << "\n\n";
+    std::cout << fphase_time << "\n" << sphase_time << "\n" << tphase_time << std::endl;
 //    std::cout << dfans_prefix << "\n";
 //    std::ifstream dfans_in(dfans_prefix);
 //    while (true) {
