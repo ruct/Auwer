@@ -10,7 +10,7 @@ using std::string;
 std::mt19937 gen(3711);
 const int WH = 512;
 const int size = 64;
-const int NL = 1345, NR = 2700;
+const int NL = 1200, NR = 1800;
 const string NAME = "data_train";
 const int cntsq = WH/size;
 
@@ -772,23 +772,24 @@ namespace GA {
             std::swap(scent[0], scent[i]);
         }
 
-        std::cout << "harvested" << std::endl;
-        for (int i = 0; i < REAP; ++i)
-            std::cout << fit_cost(scent[i]) << " ";
-        std::cout << std::endl;
-        std::shuffle(scent, scent+REAP, gen);
+//        std::cout << "harvested" << std::endl;
+//        for (int i = 0; i < REAP; ++i)
+//            std::cout << fit_cost(scent[i]) << " ";
+//        std::cout << std::endl;
+//        std::shuffle(scent, scent+REAP, gen);
     }
 
+    int NOFIMAGE;
     int16_t GA_ans[cntsq][cntsq];
     void genetic_algorithm() {
         init();
         harvest();
 
-        std::cout << fit_cost(scent[0]) << std::endl;
-        system("pause");
+//        std::cout << fit_cost(scent[0]) << std::endl;
+//        system("pause");
 
 //        WRITE_CROSS = 1;
-        std::cout << "we are here" << std::endl;
+//        std::cout << "we are here" << std::endl;
         for (CUR_GEN = 0; CUR_GEN < GENS; ++CUR_GEN) {
             breed(), harvest();
             std::cout << CUR_GEN_CNT_FIRST_PHASE << " " << OVERALL_GEN << " "
@@ -842,7 +843,7 @@ namespace GA {
                 sum += fit_cost(scent[j]);
                 mn = std::min(mn, fit_cost(scent[j]));
             }
-            std::cout << "Generation #" << CUR_GEN << " " << sum << " " << mn << std::endl;
+            std::cout << NOFIMAGE << " Generation #" << CUR_GEN << " " << sum << " " << mn << std::endl;
 //            system("pause");
 
         }
@@ -866,25 +867,29 @@ int main() {
     //  default answer
     string dfans_prefix = R"(C:\Users\Main\Base\huawei\)"+NAME+"\\"+NAME+"_"+std::to_string(size)+"_answers.txt";
 
-    int n = 1200;
-    string shimg = shimg_prefix+"\\"+std::to_string(n)+".txt";
-    string crimg = crimg_prefix+"\\"+std::to_string(n)+".txt";
-    std::ifstream shimg_in(shimg, std::ios::binary);
-    std::ifstream crimg_in(crimg);
-
-    augm::read_picture(shimg_in);
-    GA::recalc();
-
-    GA::genetic_algorithm();
     string ans_write_path = R"(C:\Users\Main\Base\huawei\parsed\)" + NAME + "\\" +
             std::to_string(size) + "\\answers.txt";
     std::ofstream ans_out(ans_write_path);
-    ans_out << std::to_string(n) << ".png" << std::endl;
-    for (int i = 0; i < cntsq; ++i)
-    for (int j = 0; j < cntsq; ++j)
-        ans_out << GA::GA_ans[i][j] << " ";
-    std::cout << "\n\n";
-    std::cout << fphase_time << "\n" << sphase_time << "\n" << tphase_time << std::endl;
+    for (int n = NL; n <= NL+100; ++n) {
+        GA::NOFIMAGE = n;
+        string shimg = shimg_prefix+"\\"+std::to_string(n)+".txt";
+        string crimg = crimg_prefix+"\\"+std::to_string(n)+".txt";
+        std::ifstream shimg_in(shimg, std::ios::binary);
+        std::ifstream crimg_in(crimg);
+
+        augm::read_picture(shimg_in);
+        GA::recalc();
+
+        GA::genetic_algorithm();
+        ans_out << std::to_string(n) << ".png" << std::endl;
+        for (int i = 0; i < cntsq; ++i)
+        for (int j = 0; j < cntsq; ++j)
+            ans_out << GA::GA_ans[i][j] << " ";
+        ans_out << std::endl;
+
+        std::cout << "\n\n";
+        std::cout << fphase_time << "\n" << sphase_time << "\n" << tphase_time << std::endl;
+    }
 //    std::cout << dfans_prefix << "\n";
 //    std::ifstream dfans_in(dfans_prefix);
 //    while (true) {

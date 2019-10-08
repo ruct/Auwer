@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
 
     QString img_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
-            QString::number(size) + "\\1200.txt";
+            QString::number(size) + "\\1205.txt";
     QString ans_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
             QString::number(size) + "\\answers.txt";
     QString img_write_path = R"(C:\Users\Main\Base\huawei\RESULT.png)";
