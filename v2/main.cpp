@@ -65,7 +65,7 @@ namespace augm {
     void read_picture(std::ifstream& in) {
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
-            picture[i][j].read(in);
+            picture[j][i].read(in);
     }
 }
 
