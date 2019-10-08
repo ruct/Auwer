@@ -19,8 +19,9 @@ QColor Image[WH][WH];
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
 
+    int NUMBER = 1220;
     QString img_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
-            QString::number(size) + "\\1205.txt";
+            QString::number(size) + "\\" + QString::number(NUMBER) + ".txt";
     QString ans_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
             QString::number(size) + "\\answers.txt";
     QString img_write_path = R"(C:\Users\Main\Base\huawei\RESULT.png)";
@@ -45,7 +46,9 @@ int main(int argc, char *argv[]) {
 
     std::ifstream ans_in(ans_read_path.toStdString());
     std::string trash;
-    std::getline(ans_in, trash);
+    while (std::getline(ans_in, trash))
+        if (trash == QString::number(NUMBER).toStdString()+".png")
+            break;
 
     std::cout << "reading permutation" << std::endl;
     for (int j = 0; j < cntsq; ++j, std::cout << std::endl)

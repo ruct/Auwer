@@ -300,7 +300,7 @@ const int ST_FEW_SWAPS = 3;
 const int FSKIP = 6;
 const int TSKIP = 6;
 const int CHANCE_HARE = 20;
-const int FIRST_PHASE_AFTER = 20;
+const int FIRST_PHASE_AFTER = 30;
 std::vector <std::pair <ld, int> > best_starts;
 
 struct TimeLogger {
@@ -870,7 +870,7 @@ int main() {
     string ans_write_path = R"(C:\Users\Main\Base\huawei\parsed\)" + NAME + "\\" +
             std::to_string(size) + "\\answers.txt";
     std::ofstream ans_out(ans_write_path);
-    for (int n = NL; n <= NL+100; ++n) {
+    for (int n = NL; n <= NL+30; ++n) {
         GA::NOFIMAGE = n;
         string shimg = shimg_prefix+"\\"+std::to_string(n)+".txt";
         string crimg = crimg_prefix+"\\"+std::to_string(n)+".txt";
