@@ -51,8 +51,11 @@ struct square {
     }
 };
 
-
+int16_t RPICTURE[WH][WH];
+int16_t GPICTURE[WH][WH];
+int16_t BPICTURE[WH][WH];
 square picture[cntsq][cntsq];
+
 namespace augm {
     int read_int(std::ifstream& in) {
         int val;
@@ -63,9 +66,24 @@ namespace augm {
         out.write(reinterpret_cast <char*>(&val), sizeof(val));
     }
     void read_picture(std::ifstream& in) {
+        for (int j = 0; j < WH; ++j)
+        for (int i = 0; i < WH; ++i) {
+            int cur = read_int(in);
+            int r = cur>>16,
+                g = (cur>>8)&255,
+                b = cur&255;
+            RPICTURE[i][j] = r;
+            GPICTURE[i][j] = g;
+            BPICTURE[i][j] = b;
+        }
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
-            picture[j][i].read(in);
+            for (int x = 0; x < size; ++x)
+            for (int y = 0; y < size; ++y) {
+                picture[i][j].r[x][y] = RPICTURE[i*size+x][j*size+y];
+                picture[i][j].g[x][y] = GPICTURE[i*size+x][j*size+y];
+                picture[i][j].b[x][y] = BPICTURE[i*size+x][j*size+y];
+            }
     }
 }
 
@@ -250,7 +268,7 @@ namespace GA {
 
 }
 
-const int GENS = 20;
+const int GENS = 200;
 const int REAP = 4;
 const int PEACE = 1000;
 chromo scent[PEACE];
@@ -262,12 +280,12 @@ namespace GA {
     void init() {
         for (int i = 0; i < PEACE; ++i) {
             stupid_shuffle(scent[i]);
-//            for (int j = 0; j < ST_FEW_SWAPS; ++j) {
-//                chromo cur = scent[i];
-//                few_swaps(cur, 3);
-//                if (fit_cost(cur) > fit_cost(scent[i]))
-//                    scent[i] = cur;
-//            }
+            for (int j = 0; j < ST_FEW_SWAPS; ++j) {
+                chromo cur = scent[i];
+                few_swaps(cur, 3);
+                if (fit_cost(cur) > fit_cost(scent[i]))
+                    scent[i] = cur;
+            }
         }
     }
 
