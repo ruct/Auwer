@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 
             for (int x = 0; x < size; ++x)
                 for (int y = 0; y < size; ++y) {
-                    res.setPixelColor(i*size+x, j*size+y, Image[ni*size+x][nj*size+y]);
+                    res.setPixelColor(i*size+x, j*size+y, Image[nj*size+y][ni*size+x]);
                 }
         }
 
