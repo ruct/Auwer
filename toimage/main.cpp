@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
 
     QString img_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
-            QString::number(size) + "\\1200.txt";
+            QString::number(size) + "\\1201.txt";
     QString ans_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
             QString::number(size) + "\\answers.txt";
     QString img_write_path = R"(C:\Users\Main\Base\huawei\RESULT.png)";
@@ -48,8 +48,8 @@ int main(int argc, char *argv[]) {
     std::getline(ans_in, trash);
 
     std::cout << "reading permutation" << std::endl;
-    for (int i = 0; i < cntsq; ++i, std::cout << std::endl)
-        for (int j = 0; j < cntsq; ++j){
+    for (int j = 0; j < cntsq; ++j, std::cout << std::endl)
+        for (int i = 0; i < cntsq; ++i){
             int pos; ans_in >> pos;
             std::cout << pos << " ";
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 
             for (int x = 0; x < size; ++x)
                 for (int y = 0; y < size; ++y) {
-                    res.setPixelColor(i*size+x, j*size+y, Image[nj*size+y][ni*size+x]);
+                    res.setPixelColor(i*size+y, j*size+x, Image[nj*size+y][ni*size+x]);
                 }
         }
 
