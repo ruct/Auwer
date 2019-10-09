@@ -1,5 +1,7 @@
 #include <tuple>
 #include <time.h>
+#include <chrono>
+#include <future>
 #include <random>
 #include <fstream>
 #include <assert.h>
@@ -145,7 +147,7 @@ struct chromo {
         for (int j = 0; j < cntsq; ++j)
             wher[perm[i][j]] = i*cntsq+j;
     }
-    void write() {
+    void write() const {
         for (int i = 0; i < cntsq; ++i) {
             for (int j = 0; j < cntsq; ++j)
                 std::cout << perm[i][j] << "\t";
@@ -254,10 +256,12 @@ namespace GA {
         ld eval = 0;
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j) {
-            if (j+1 < cntsq)
+            if (j+1 < cntsq) {
                 eval += fitLR[o.perm[i][j]][o.perm[i][j+1]];
-            if (i+1 < cntsq)
+            }
+            if (i+1 < cntsq) {
                 eval += fitUD[o.perm[i][j]][o.perm[i+1][j]];
+            }
         }
         return o.eval = eval;
     }
@@ -291,18 +295,16 @@ namespace GA {
 
 }
 
-const int GENS = 70;
-const int BEST_POINTS_SIZE = 10;
-const int BEST_POINTS_CHANCE = 10;
-const int REAP = 20;
-const int PEACE = 1000;
+const int CORES = 4;
+const int GENS = 100;
+const int REAP = 10;
+const int PEACE = 2000;
 chromo scent[PEACE];
 const int ST_FEW_SWAPS = 3;
 const int FSKIP = 6;
 const int TSKIP = 6;
-const int CHANCE_HARE = 10;
-const int FIRST_PHASE_AFTER = 20;
-std::vector <std::pair <ld, int> > best_starts;
+const int CHANCE_HARE = 0;
+const int FIRST_PHASE_AFTER = 10;
 
 struct TimeLogger {
     ld start;
@@ -318,6 +320,7 @@ ld fphase_time;
 ld sphase_time;
 ld tphase_time;
 
+int CUR_GEN;
 chromo GLOBAL;
 namespace GA {
 
@@ -390,22 +393,8 @@ namespace GA {
 //        return i;
 //    }
 
-    bool WRITE_CROSS = false;
-    int CUR_GEN_CNT_FIRST_PHASE;
-    int CUR_GEN_CNT_SECOND_PHASE;
-    int CUR_GEN_CNT_FIRST_MUTATION;
-    int CUR_GEN_CNT_THIRD_MUTATION;
-    int OVERALL_GEN;
-    int CUR_GEN;
-
-    void cross(chromo& a, chromo& b, chromo& t) {
+    void cross(chromo const& a, chromo const& b, chromo& t, std::mt19937& genr) {
         temp_chromo temp;
-
-        if (WRITE_CROSS) {
-            std::cout << "CROSS: \n";
-            std::cout << "A: \n"; a.write();
-            std::cout << "B: \n"; b.write();
-        }
 
         std::vector <int> lft(cntsq*cntsq);
         std::iota(lft.begin(), lft.end(), 0);
@@ -437,7 +426,6 @@ namespace GA {
         auto place_fragment = [&temp, &placed, &used, &lft, &bound, &bound_update]
             (int i, int j, int id) {
                 ++placed;
-                ++OVERALL_GEN;
                 used[id] = 1;
 //                std::cout << "F" << std::endl;
                 temp.set(i, j, id);
@@ -451,50 +439,26 @@ namespace GA {
                         break;
                     }
                 assert(happened);
-//                lft.erase(std::find(lft.begin(), lft.end(), id));
-//                std::cout << std::boolalpha << happened << " LDD" << std::endl;
-//                std::cout << "T" << " " << i << " " << j << std::endl;
-//                std::cout << bound.size() << std::endl;
                 bound.emplace_back(i, j);
-//                std::cout << bound[0].first << " " << bound[0].second << std::endl;
-//                std::cout << "G" << std::endl;
-
-//                std::cout << bound[0].first << " " << bound[0].second << std::endl;
                 bound_update();
-//                std::cout << "new size = " << bound.size() << std::endl;
-
-//                std::cout << "M" << std::endl;
             };
 
-        int START_POINT = gen()%(cntsq*cntsq);
-        if (CUR_GEN > FIRST_PHASE_AFTER && best_starts.size() && gen()%100 < BEST_POINTS_CHANCE) {
-            START_POINT = best_starts[gen()%best_starts.size()].second;
-        }
-        place_fragment(cntsq, cntsq, START_POINT);
+//        std::cout << "A:\n";
+//        a.write();
+//        std::cout << "\nB:\n";
+//        b.write();
+//        std::cout << std::endl;
 
-        bool STILL_FIRST_COMP = true;
-        int FIRST_PHASE_COMPONENT = 0;
+        place_fragment(cntsq, cntsq, genr()%(cntsq*cntsq));
         while (placed < cntsq*cntsq) {
-//            if (WRITE_CROSS && placed % 3 == 0)
-//                system("cls");
-
-            if (WRITE_CROSS) {
-                std::cout << "AA:\n";
-                a.write();
-                std::cout << "\n";
-                std::cout << "BB:\n";
-                b.write();
-                std::cout << "\n";
-                temp.write();
-                system("pause");
-                std::cout << "Placed " << placed << std::endl;
-            }
+//            std::cout << placed << std::endl;
+//            temp.write();
+//            system("pause");
 
             //{index in number, direction, suitable_id}
             std::vector <std::tuple <int, int, int> > suitable;
             ///  first phase
             if (CUR_GEN > FIRST_PHASE_AFTER){
-                TimeLogger first_phase_time(&fphase_time);
 
                 for (int TT = 0; TT < bound.size(); ++TT) {
                     int i = bound[TT].first, j = bound[TT].second;
@@ -518,22 +482,17 @@ namespace GA {
                         if (nj2 < 0 || nj2 >= cntsq) continue;
                         if (a.perm[ni1][nj1] == b.perm[ni2][nj2] && !used[a.perm[ni1][nj1]]) {
                             suitable.emplace_back(TT, d, a.perm[ni1][nj1]);
-                            if (WRITE_CROSS) {
-                                std::cout << "Excellent match " << cur_id << " " << a.perm[ni1][nj1] << " " << d << std::endl;
-                            }
                         }
                     }
                 }
 
-                if (WRITE_CROSS)
-                    std::cout << "First phase " << suitable.size() << std::endl;
-
+//                std::cout << "First " << suitable.size() << std::endl;
                 if (suitable.size()) {
-                    if (gen()%100 < FSKIP) {
+                    if (genr()%100 < FSKIP) {
                         int dirs[] = {0, 1, 2, 3};
-                        std::shuffle(dirs, dirs+4, gen);
+                        std::shuffle(dirs, dirs+4, genr);
 
-                        int P = gen()%bound.size();
+                        int P = genr()%bound.size();
                         int i = bound[P].first,
                             j = bound[P].second;
                         for (int _d = 0; _d < 4; ++_d) {
@@ -542,13 +501,12 @@ namespace GA {
                                 nj = j+dy[d];
                             if (!temp.can(ni, nj))
                                 continue;
-                            ++CUR_GEN_CNT_FIRST_MUTATION;
-                            place_fragment(ni, nj, lft[gen()%lft.size()]);
+                            place_fragment(ni, nj, lft[genr()%lft.size()]);
                         }
                         continue;
                     }
 
-                    int srnd = gen()%suitable.size();
+                    int srnd = genr()%suitable.size();
                     int TT = std::get<0> (suitable[srnd]);
                     int id = std::get<2> (suitable[srnd]);
                     int d = std::get<1> (suitable[srnd]);
@@ -556,27 +514,15 @@ namespace GA {
                     int i = bound[TT].first,
                         j = bound[TT].second;
 
-                    if (WRITE_CROSS) {
-                        system("pause");
-                    }
-
-                    ++CUR_GEN_CNT_FIRST_PHASE;
-                    if (STILL_FIRST_COMP)
-                        ++FIRST_PHASE_COMPONENT;
                     place_fragment(i+dx[d], j+dy[d], id);
 
                     continue;
                 }
             }
 
-            if (CUR_GEN > FIRST_PHASE_AFTER && STILL_FIRST_COMP) {
-                STILL_FIRST_COMP = 0;
-//                std::cout << "FIRST = " << FIRST_PHASE_COMPONENT << std::endl;
-            }
-
             ///second phase
             {
-                TimeLogger second_phase_time(&sphase_time);
+//                TimeLogger second_phase_time(&sphase_time);
                 suitable.clear();
 
                 for (int TT = 0; TT < bound.size(); ++TT) {
@@ -611,7 +557,7 @@ namespace GA {
 
 //                std::cout << "Second phase " << suitable.size() << std::endl;
                 if (suitable.size()) {
-                    int srnd = gen()%suitable.size();
+                    int srnd = genr()%suitable.size();
                     int TT = std::get<0> (suitable[srnd]);
                     int id = std::get<2> (suitable[srnd]);
                     int d = std::get<1> (suitable[srnd]);
@@ -619,29 +565,20 @@ namespace GA {
                     int i = bound[TT].first,
                         j = bound[TT].second;
 
-                    if (WRITE_CROSS) {
-                        system("pause");
-                    }
-
-                    ++CUR_GEN_CNT_SECOND_PHASE;
                     place_fragment(i+dx[d], j+dy[d], id);
                     continue;
                 }
             }
 
+//            std::cout << "try third" << std::endl;
             ///third phase
             {
-                TimeLogger third_phase_time(&tphase_time);
-                if (WRITE_CROSS) {
-                    std::cout << "third - start" << std::endl;
-                    std::cout << bound.size() << std::endl;
-                }
-
-                if (gen()%100 < TSKIP) {
+//                TimeLogger third_phase_time(&tphase_time);
+                if (genr()%100 < TSKIP) {
                     int dirs[] = {0, 1, 2, 3};
-                    std::shuffle(dirs, dirs+4, gen);
+                    std::shuffle(dirs, dirs+4, genr);
 
-                    int P = gen()%bound.size();
+                    int P = genr()%bound.size();
                     int i = bound[P].first,
                         j = bound[P].second;
                     for (int _d = 0; _d < 4; ++_d) {
@@ -650,19 +587,15 @@ namespace GA {
                             nj = j+dy[d];
                         if (!temp.can(ni, nj))
                             continue;
-                        ++CUR_GEN_CNT_THIRD_MUTATION;
-                        place_fragment(ni, nj, lft[gen()%lft.size()]);
+                        place_fragment(ni, nj, lft[genr()%lft.size()]);
                     }
                     continue;
                 }
 
-                int TT = gen()%bound.size();
+                int TT = genr()%bound.size();
                 int i = bound[TT].first,
                     j = bound[TT].second;
                 int id = temp.perm[i][j];
-
-                if (WRITE_CROSS)
-                    std::cout << "Third phase " << i << " " << j << std::endl;
 
                 ld mn = 1e9;
                 int mn_id = -1, mn_d = -1;
@@ -672,9 +605,6 @@ namespace GA {
 
                     if (!temp.can(ni, nj))
                         continue;
-
-                    if (WRITE_CROSS)
-                        std::cout << "random_find " << id << " " << d << " " << ni << " " << nj << std::endl;
 
                     for (int lft_id : lft) {
                         ld cur = pair_match(id, lft_id, d);
@@ -688,9 +618,6 @@ namespace GA {
                 place_fragment(i+dx[mn_d], j+dy[mn_d], mn_id);
             }
         }
-//        if (CUR_GEN > FIRST_PHASE_AFTER)
-//            std::cout << FIRST_PHASE_COMPONENT << std::endl;
-
         assert(temp.mxi-temp.mni+1 == cntsq);
         assert(temp.mxj-temp.mnj+1 == cntsq);
 
@@ -699,101 +626,65 @@ namespace GA {
             t.perm[i][j] = temp.perm[i+temp.mni][j+temp.mnj];
         t.eval = -1;
         t.mk_wher();
-
-        if (fit_cost(GLOBAL) > fit_cost(t))
-            GLOBAL = t;
-
-        char lol = 0;
-//        for (int i = 0; i < best_starts.size(); ++i)
-//            if (best_starts[i].second == START_POINT) {
-//                best_starts[i].first = fit_cost(t);
-//                lol = 1;
-//                break;
-//            }
-        if (!lol)
-            best_starts.emplace_back(FIRST_PHASE_COMPONENT, START_POINT);
-        std::sort(best_starts.rbegin(), best_starts.rend());
-        while (best_starts.size() > BEST_POINTS_SIZE)
-            best_starts.pop_back();
-//        std::cout << "CROSSSS " << F1 << " " << F2 << " " << fit_cost(t) << std::endl;
     }
 
-    void breed() {
-//        std::cout << "start breeding" << std::endl;
-
-        int sz = 0;
-        chromo cur[REAP];
-        for (int i = 0; i < REAP; ++i)
-            cur[i] = scent[i];
-
-        while (sz < PEACE) {
-            int i = gen()%REAP,
-                j = gen()%REAP;
-            if (i == j)
-                continue;
-            cross(cur[i], cur[j], scent[sz]);
-            ++sz;
+    chromo parents[REAP];
+    void breedLR(int l, int r) {
+        std::mt19937 genr(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+        for (int i = l; i <= r; ++i) {
+//            std::cout << i << std::endl;
+            int a = genr()%REAP,
+                b = genr()%(REAP-1);
+            if (b >= a) ++b;
+//            std::cout << a << " " << b << " " << i << std::endl;
+            cross(parents[a], parents[b], scent[i], genr);
         }
-//        while (sz < PEACE) {
-//            for (int i = 0; sz < PEACE && i < REAP; ++i)
-//            for (int j = 0; sz < PEACE && j < REAP; ++j) {
-//                if (i == j) continue;
-//                cross(cur[i], cur[j], scent[sz]);
-//                ++sz;
-//            }
-//        }
-
-//        while (size < (PEACE)/2) {
-//            for (int i = 0; i < REAP; i += 2) {
-//                cross(scent[i], scent[i+1], scent[size]);
-//                ++size;
-//                if (size == PEACE)
-//                    break;
-//            }
-////            std::cout << size << std::endl;
-//        }
-//        while (size < PEACE) {
-//            int i = gen()%size,
-//                j = gen()%(size-1);
-//            if (j >= i) ++j;
-//            cross(scent[i], scent[j], scent[size]);
-//            ++size;
-//        }
-
-//        std::cout << "breed ended" << std::endl;
-//        for (int i = 0; i < PEACE; ++i)
-//            scent[i] = scent[i+REAP];
+//        std::cout << "finished " << l << " " << r << std::endl;
     }
-    void harvest() {
-//        std::cout << "start harvesting" << std::endl;
+    void breed() {
+        std::cout << "start breeding" << std::endl;
+        for (int i = 0; i < REAP; ++i)
+            parents[i] = scent[i];
 
+        int each = PEACE/CORES;
+        assert(PEACE%CORES == 0);
+
+        std::future <void> threads[CORES];
+        for (int i = 0; i < CORES; ++i)
+            threads[i] = std::async(std::launch::async, breedLR, i*each, (i+1)*each-1);
+        for (int i = 0; i < CORES; ++i)
+            threads[i].get();
+
+        std::cout << "finished breeding" << std::endl;
+    }
+
+    void harvest() {
         std::vector <std::pair <ld, int> > _scent(PEACE);
         for (int i = 0; i < PEACE; ++i)
             _scent[i] = {fit_cost(scent[i]), i};
         std::sort(_scent.begin(), _scent.end());
-//        scent[0].write();
 
         std::vector <chromo> buf(REAP);
 
         int sz = 0;
-        for (int i = 0; sz < REAP; ++i)
-            if (_scent[i+1].first > _scent[i].first+10) {
+        for (int i = 0; sz < REAP; ++i) {
+            if (_scent[i+1].first > _scent[i].first) {
                 buf[sz] = scent[_scent[i].second];
                 ++sz;
             }
+        }
         for (int i = 0; i < REAP; ++i)
             scent[i] = buf[i];
-//        if (gen()%100 < CHANCE_HARE) {
-//            int i = gen()%REAP;
-//            std::swap(scent[0], scent[i]);
-//        }
+
+        if (fit_cost(GLOBAL) > fit_cost(scent[0]))
+            GLOBAL = scent[0];
         if (gen()%100 < CHANCE_HARE)
             scent[1] = GLOBAL;
 
-//        std::cout << "harvested" << std::endl;
-//        for (int i = 0; i < REAP; ++i)
-//            std::cout << fit_cost(scent[i]) << " ";
-//        std::cout << std::endl;
+        std::cout << "harvested" << std::endl;
+        for (int i = 0; i < REAP; ++i)
+            std::cout << fit_cost(scent[i]) << " ";
+        std::cout << std::endl;
 //        std::shuffle(scent, scent+REAP, gen);
     }
 
@@ -803,62 +694,9 @@ namespace GA {
         init();
         harvest();
 
-//        std::cout << fit_cost(scent[0]) << std::endl;
-//        system("pause");
-
-//        WRITE_CROSS = 1;
-//        std::cout << "we are here" << std::endl;
         for (CUR_GEN = 0; CUR_GEN < GENS; ++CUR_GEN) {
             breed(), harvest();
-            std::cout << CUR_GEN_CNT_FIRST_PHASE << " " << OVERALL_GEN << " "
-                << double(CUR_GEN_CNT_FIRST_PHASE)/double(OVERALL_GEN) << std::endl;
-            std::cout << CUR_GEN_CNT_SECOND_PHASE << " " << OVERALL_GEN << " "
-                << double(CUR_GEN_CNT_SECOND_PHASE)/double(OVERALL_GEN) << std::endl;
-            std::cout << CUR_GEN_CNT_FIRST_MUTATION << " " << OVERALL_GEN << " "
-                << double(CUR_GEN_CNT_FIRST_MUTATION)/double(OVERALL_GEN) << std::endl;
-            std::cout << CUR_GEN_CNT_THIRD_MUTATION << " " << OVERALL_GEN << " "
-                << double(CUR_GEN_CNT_THIRD_MUTATION)/double(OVERALL_GEN) << std::endl;
 
-            if (best_starts.size())
-                std::cout << best_starts[0].first << " " << best_starts[0].second << std::endl;
-
-            CUR_GEN_CNT_FIRST_PHASE = 0;
-            CUR_GEN_CNT_SECOND_PHASE = 0;
-            CUR_GEN_CNT_FIRST_MUTATION = 0;
-            CUR_GEN_CNT_THIRD_MUTATION = 0;
-            OVERALL_GEN = 0;
-//            if (i == 25) {
-//                system("cls");
-//                system("pause");
-//                system("pause");
-//                scent[0].write();
-//                std::cout << "\n";
-//                scent[1].write();
-//
-//                for (int i = 0; i < cntsq*cntsq; ++i)
-//                    std::cout << scent[0].wher[i] << " ";
-//                std::cout << "\n";
-//                for (int i = 0; i < cntsq*cntsq; ++i)
-//                    std::cout << scent[1].wher[i] << " ";
-//                std::cout << "\n";
-//
-//                std::cout << "\nChildren:\nfirst:\n";
-//                chromo cur;
-//
-//                WRITE_CROSS = 1;
-//                cross(scent[0], scent[1], cur);
-//                cur.write();
-//                system("pause");
-//                system("pause");
-//                system("pause");
-//
-//                std::cout << "second:\n";
-//                cross(scent[0], scent[1], cur);
-//                cur.write();
-//                WRITE_CROSS = 0;
-//                std::cout << "END" << std::endl;
-//                system("pause");
-//            }
             ld sum = 0, mn = 1e18;
             for (int j = 0; j < REAP; ++j) {
                 sum += fit_cost(scent[j]);
@@ -871,7 +709,7 @@ namespace GA {
         }
 
         std::cout << "\n\n\n";
-        GLOBAL.write();
+//        GLOBAL.write();
 
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
