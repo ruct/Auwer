@@ -1,3 +1,4 @@
+#include <tuple>
 #include <random>
 #include <vector>
 #include <fstream>
@@ -183,6 +184,7 @@ const int CORES = 4;
 const int GENS = 100;
 const int POP = 1000;
 const int PREAP = 40;
+const int FSINCE = 10;
 
 //  population & kernel
 namespace ga {
@@ -198,8 +200,9 @@ namespace ga {
                 random_chromo(stock[i]);
         }
     };
+
+    const int TCNTSQ = 2*CNTSQ+1;
     struct kernel {
-        static const int TCNTSQ = 2*CNTSQ+1;
 
     private:
         vector <int> edge, plan;
@@ -213,7 +216,7 @@ namespace ga {
 
         vector <int> const& get_edge() const { return edge; }
         vector <int> const& get_plan() const { return plan; }
-        int located() const { return CNTSQ*CNTSQ-int(plan.size()); }
+        int arranged() const { return CNTSQ*CNTSQ-int(plan.size()); }
 
         //  assuming i in [0, TCNTSQ), j in [0, TCNTSQ)
         int get(int i, int j) const { return perm[i][j]; }
@@ -251,6 +254,8 @@ namespace ga {
         for (int i = 0; i < TCNTSQ; ++i)
         for (int j = 0; j < TCNTSQ; ++j)
             perm[i][j] = -1;
+        plan.resize(CNTSQ*CNTSQ);
+        std::iota(plan.begin(), plan.end(), 0);
     }
     void kernel::write() {
         for (int i = 0; i < TCNTSQ; ++i) {
@@ -309,13 +314,63 @@ namespace ga {
 
 //  genetic operators
 namespace ga {
-    void mutate(chromo&, std::mt19937&);
-    void cross(population const&, chromo const&, chromo const&, std::mt19937&);
     void mutate(chromo& t, std::mt19937& gen) {
     //  Vertical shift chance
     static const int VSHIFT = 70;
-        if (gen()%100 < VSHIFT) {
+        if (gen()%100 < VSHIFT)
+            shift(t, gen()&1);
+        else
+            shift(t, 2^(gen()&1));
+    }
 
+    bool first_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+        if (pop.nogen <= FSINCE)
+            return false;
+        auto& edge = step.get_edge();
+
+        //  {T, d, orig_id}
+        vector <std::tuple <int, int, int> > fsuit;
+        for (int T = 0; T < edge.size(); ++T) {
+            int pT = edge[T];
+            int i = pT/TCNTSQ, j = pT%TCNTSQ;
+
+            int id = step.get(i, j);
+            int p1 = a.wher[id], p2 = b.wher[id];
+            int i1 = p1/TCNTSQ, j1 = p1%TCNTSQ;
+            int i2 = p2/TCNTSQ, j2 = p2%TCNTSQ;
+            for (int d = 0; d < 4; ++d) {
+                if (!step.can(i+dx[d], j+dy[d]))
+                    continue;
+
+                int ni1 = i1+dx[d], nj1 = j1+dy[d];
+                if (std::min(ni1, nj1) < 0 ||
+                    std::max(ni1, nj1) >= CNTSQ)
+                    continue;
+
+                int ni2 = i2+dx[d], nj2 = j2+dy[d];
+                if (std::min(ni2, nj2) < 0 ||
+                    std::max(ni2, nj2) >= CNTSQ)
+                    continue;
+
+                if (a.perm[ni1][nj1] == b.perm[ni2][nj2])
+                    fsuit.emplace_back(i+dx[d], j+dy[d], a.perm[ni1][nj1]);
+            }
+        }
+
+        if (fsuit.empty())
+            return false;
+
+        int pi, pj, id;
+        std::tie(pi, pj, id) = fsuit[gen()%fsuit.size()];
+        return step.place(pi, pj, id), true;
+    }
+    void cross(population const& pop, chromo const& a, chromo const& b, std::mt19937& gen) {
+        kernel step;
+        step.place(CNTSQ, CNTSQ, gen()%(CNTSQ*CNTSQ));
+
+        while (step.arranged() != CNTSQ*CNTSQ) {
+            if (first_phase(pop, a, b, step, gen))
+                continue;
         }
     }
 }
