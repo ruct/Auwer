@@ -122,6 +122,14 @@ namespace ga {
             cur_diss = metric(a, b);
             diss[2][p1][p2] = diss[3][p2][p1] = cur_diss;
         }
+        for (int d = 0; d < 4; ++d)
+        for (int p = 0; p < CNTSQ*CNTSQ; ++p) {
+            ld *b = diss[d][p] + (p == 0);
+            for (int j = 0; j < CNTSQ*CNTSQ; ++j)
+                if (p != j && diss[d][p][j] < *b)
+                    b = diss[d][p]+j;
+            bbuddy[d][p] = *b;
+        }
     }
 }
 
@@ -328,7 +336,7 @@ namespace ga {
             return false;
         auto& edge = step.get_edge();
 
-        //  {T, d, orig_id}
+        //  {target_place(i, j), target_id}
         vector <std::tuple <int, int, int> > fsuit;
         for (int T = 0; T < edge.size(); ++T) {
             int pT = edge[T];
@@ -360,10 +368,51 @@ namespace ga {
         if (fsuit.empty())
             return false;
 
-        int pi, pj, id;
-        std::tie(pi, pj, id) = fsuit[gen()%fsuit.size()];
-        return step.place(pi, pj, id), true;
+        int pi, pj, pid;
+        std::tie(pi, pj, pid) = fsuit[gen()%fsuit.size()];
+        return step.place(pi, pj, pid), true;
     }
+    bool second_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+        auto& edge = step.get_edge();
+
+        //  {target_place(i, j), target_id}
+        vector <std::tuple <int, int, int> > ssuit;
+        for (int T = 0; T < edge.size(); ++T) {
+            int pT = edge[T];
+            int i = pT/TCNTSQ, j = pT%TCNTSQ;
+
+            int id = step.get(i, j);
+            int p1 = a.wher[id], p2 = b.wher[id];
+            int i1 = p1/TCNTSQ, j1 = p1%TCNTSQ;
+            int i2 = p2/TCNTSQ, j2 = p2%TCNTSQ;
+            for (int d = 0; d < 4; ++d) {
+                if (!step.can(i+dx[d], j+dy[d]))
+                    continue;
+
+                int ni1 = i1+dx[d], nj1 = j1+dy[d];
+                if (std::min(ni1, nj1) >= 0 || std::max(ni1, nj1) < CNTSQ) {
+                    int pid = a.perm[ni1][nj1];
+                    if (bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
+                        ssuit.emplace_back(i+dx[d], j+dy[d], pid);
+                }
+
+                int ni2 = i2+dx[d], nj2 = j2+dy[d];
+                if (std::min(ni2, nj2) >= 0 || std::max(ni2, nj2) < CNTSQ) {
+                    int pid = b.perm[ni2][nj2];
+                    if (bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
+                        ssuit.emplace_back(i+dx[d], j+dy[d], pid);
+                }
+            }
+        }
+
+        if (ssuit.empty())
+            return false;
+
+        int pi, pj, pid;
+        std::tie(pi, pj, pid) = ssuit[gen()%ssuit.size()];
+        return step.place(pi, pj, pid), true;
+    }
+
     void cross(population const& pop, chromo const& a, chromo const& b, std::mt19937& gen) {
         kernel step;
         step.place(CNTSQ, CNTSQ, gen()%(CNTSQ*CNTSQ));
