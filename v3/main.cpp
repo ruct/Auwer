@@ -2,6 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <assert.h>
 #include <algorithm>
 
 using std::vector;
@@ -201,7 +202,6 @@ namespace ga {
         static const int TCNTSQ = 2*CNTSQ+1;
 
     private:
-        int located = 0;
         vector <int> edge, plan;
         int perm[TCNTSQ][TCNTSQ];
         int mni = TCNTSQ, mxi = -1;
@@ -210,6 +210,9 @@ namespace ga {
     public:
         void write();
         kernel();
+
+        vector <int> const& get_plan() const { return plan; }
+        int located() const { return CNTSQ*CNTSQ-int(plan.size()); }
 
         //  assuming i in [0, TCNTSQ), j in [0, TCNTSQ)
         int get(int i, int j) const { return perm[i][j]; }
@@ -223,8 +226,24 @@ namespace ga {
                 return false;
             return true;
         }
-        void place(int i, int j) {
+        void place(int i, int j, int t) {
+            assert(perm[i][j] == -1);
 
+            perm[i][j] = t;
+            edge.push_back(i*TCNTSQ+j);
+            plan.erase(std::find(plan.begin(), plan.end(), t));
+
+            vector <int> new_edge;
+            for (int pos : edge) {
+                int ei = pos/TCNTSQ,
+                    ej = pos%TCNTSQ;
+                int cnt = can(ei+1, ej)+can(ei-1, ej)
+                        + can(ei, ej+1)+can(ei, ej-1);
+
+                if (cnt != 4)
+                    new_edge.push_back(ei*TCNTSQ+ej);
+            }
+            edge.swap(new_edge);
         }
     };
     kernel::kernel() {
@@ -246,7 +265,6 @@ namespace ga {
 namespace ga {
     void mutate(chromo& t, std::mt19937& gen);
     void cross(chromo const& a, chromo const& b, std::mt19937& gen);
-
 
 }
 int main(){
