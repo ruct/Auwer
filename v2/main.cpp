@@ -13,7 +13,7 @@ using std::string;
 std::mt19937 gen(3711);
 const int WH = 512;
 const int size = 64;
-const int NL = 1200, NR = 1800;
+const int NL = 1200, NR = 1220;
 const string NAME = "data_train";
 const int cntsq = WH/size;
 
@@ -304,6 +304,7 @@ const int ST_FEW_SWAPS = 3;
 const int FSKIP = 6;
 const int TSKIP = 6;
 const int CHANCE_HARE = 0;
+const int MUTATION_RATE = 0;
 const int FIRST_PHASE_AFTER = 10;
 
 struct TimeLogger {
@@ -382,14 +383,9 @@ namespace GA {
 
     };
 
-//    int del_rnd(std::vector <int>& v) {
-//        int i = gen()%v.size();
-//        std::swap(v[i], v.back());
-//        i = v.back();
-//        v.pop_back();
-//        return i;
-//    }
+    void mutate(chromo& t) {
 
+    }
     void cross(chromo const& a, chromo const& b, chromo& t, std::mt19937& genr) {
         temp_chromo temp;
 
@@ -518,7 +514,7 @@ namespace GA {
             }
 
             ///second phase
-            {
+            if (1 == 0){
 //                TimeLogger second_phase_time(&sphase_time);
                 suitable.clear();
 
@@ -621,6 +617,9 @@ namespace GA {
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
             t.perm[i][j] = temp.perm[i+temp.mni][j+temp.mnj];
+
+        if (genr()%100 < MUTATION_RATE)
+            mutate(t);
         t.eval = -1;
         t.mk_wher();
     }
@@ -687,7 +686,7 @@ namespace GA {
 
     int NOFIMAGE;
     int16_t GA_ans[cntsq][cntsq];
-    void genetic_algorithm() {
+    void genetic_algorithm(std::ofstream& out) {
         init();
         harvest();
 
@@ -702,7 +701,11 @@ namespace GA {
             std::cout << NOFIMAGE << " Generation #" << CUR_GEN << " " << sum << " " << mn << std::endl;
             std::cout << "MINIMUM " << fit_cost(GLOBAL) << std::endl;
 //            system("pause");
-
+            out << NOFIMAGE+CUR_GEN << ".png\n";
+            for (int i = 0; i < cntsq; ++i)
+            for (int j = 0; j < cntsq; ++j)
+                out << scent[0].perm[i][j] << " ";
+            out << "\n";
         }
 
         std::cout << "\n\n\n";
@@ -738,7 +741,8 @@ int main() {
         augm::read_picture(shimg_in);
         GA::recalc();
 
-        GA::genetic_algorithm();
+        GA::genetic_algorithm(ans_out);
+    return 0;
         ans_out << std::to_string(n) << ".png" << std::endl;
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
