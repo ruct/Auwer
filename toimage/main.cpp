@@ -19,7 +19,7 @@ QColor Image[WH][WH];
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
 
-    int NUMBER = 1220;
+    int NUMBER = 1200;
     QString img_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
             QString::number(size) + "\\" + QString::number(NUMBER) + ".txt";
     QString ans_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +

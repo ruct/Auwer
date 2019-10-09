@@ -4,6 +4,7 @@
 #include <fstream>
 #include <assert.h>
 #include <iostream>
+#include <windows.h>
 
 using std::string;
 
@@ -195,9 +196,9 @@ namespace GA {
     ld vertsubs(square const& up, square const& dw) {
         ld diff[] = {0, 0, 0};
         for (int j = 0; j < size; ++j) {
-            diff[0] += cbr(abs(ld(up.r[size-1][j]-ld(dw.r[0][j]))));
-            diff[1] += cbr(abs(ld(up.g[size-1][j]-ld(dw.g[0][j]))));
-            diff[2] += cbr(abs(ld(up.b[size-1][j]-ld(dw.b[0][j]))));
+            diff[0] += cbr(abs(ld(up.r[size-1][j])-ld(dw.r[0][j])));
+            diff[1] += cbr(abs(ld(up.g[size-1][j])-ld(dw.g[0][j])));
+            diff[2] += cbr(abs(ld(up.b[size-1][j])-ld(dw.b[0][j])));
 //            diff[0] += sqr(ld(up.r[size-1][j]-ld(dw.r[0][j])));
 //            diff[1] += sqr(ld(up.g[size-1][j]-ld(dw.g[0][j])));
 //            diff[2] += sqr(ld(up.b[size-1][j]-ld(dw.b[0][j])));
@@ -291,7 +292,7 @@ namespace GA {
 }
 
 const int GENS = 70;
-const int BEST_POINTS_SIZE = 3;
+const int BEST_POINTS_SIZE = 10;
 const int BEST_POINTS_CHANCE = 10;
 const int REAP = 20;
 const int PEACE = 1000;
@@ -299,8 +300,8 @@ chromo scent[PEACE];
 const int ST_FEW_SWAPS = 3;
 const int FSKIP = 6;
 const int TSKIP = 6;
-const int CHANCE_HARE = 20;
-const int FIRST_PHASE_AFTER = 30;
+const int CHANCE_HARE = 10;
+const int FIRST_PHASE_AFTER = 20;
 std::vector <std::pair <ld, int> > best_starts;
 
 struct TimeLogger {
@@ -317,6 +318,7 @@ ld fphase_time;
 ld sphase_time;
 ld tphase_time;
 
+chromo GLOBAL;
 namespace GA {
 
     void init() {
@@ -329,6 +331,7 @@ namespace GA {
                     scent[i] = cur;
             }
         }
+        GLOBAL = scent[0];
     }
 
     const int tcntsq = 2*cntsq+1;
@@ -398,7 +401,6 @@ namespace GA {
     void cross(chromo& a, chromo& b, chromo& t) {
         temp_chromo temp;
 
-
         if (WRITE_CROSS) {
             std::cout << "CROSS: \n";
             std::cout << "A: \n"; a.write();
@@ -465,11 +467,13 @@ namespace GA {
             };
 
         int START_POINT = gen()%(cntsq*cntsq);
-        if (best_starts.size() && gen()%100 < BEST_POINTS_CHANCE) {
+        if (CUR_GEN > FIRST_PHASE_AFTER && best_starts.size() && gen()%100 < BEST_POINTS_CHANCE) {
             START_POINT = best_starts[gen()%best_starts.size()].second;
         }
         place_fragment(cntsq, cntsq, START_POINT);
 
+        bool STILL_FIRST_COMP = true;
+        int FIRST_PHASE_COMPONENT = 0;
         while (placed < cntsq*cntsq) {
 //            if (WRITE_CROSS && placed % 3 == 0)
 //                system("cls");
@@ -557,10 +561,17 @@ namespace GA {
                     }
 
                     ++CUR_GEN_CNT_FIRST_PHASE;
+                    if (STILL_FIRST_COMP)
+                        ++FIRST_PHASE_COMPONENT;
                     place_fragment(i+dx[d], j+dy[d], id);
 
                     continue;
                 }
+            }
+
+            if (CUR_GEN > FIRST_PHASE_AFTER && STILL_FIRST_COMP) {
+                STILL_FIRST_COMP = 0;
+//                std::cout << "FIRST = " << FIRST_PHASE_COMPONENT << std::endl;
             }
 
             ///second phase
@@ -677,6 +688,8 @@ namespace GA {
                 place_fragment(i+dx[mn_d], j+dy[mn_d], mn_id);
             }
         }
+//        if (CUR_GEN > FIRST_PHASE_AFTER)
+//            std::cout << FIRST_PHASE_COMPONENT << std::endl;
 
         assert(temp.mxi-temp.mni+1 == cntsq);
         assert(temp.mxj-temp.mnj+1 == cntsq);
@@ -687,6 +700,9 @@ namespace GA {
         t.eval = -1;
         t.mk_wher();
 
+        if (fit_cost(GLOBAL) > fit_cost(t))
+            GLOBAL = t;
+
         char lol = 0;
 //        for (int i = 0; i < best_starts.size(); ++i)
 //            if (best_starts[i].second == START_POINT) {
@@ -695,8 +711,8 @@ namespace GA {
 //                break;
 //            }
         if (!lol)
-            best_starts.emplace_back(fit_cost(t), START_POINT);
-        std::sort(best_starts.begin(), best_starts.end());
+            best_starts.emplace_back(FIRST_PHASE_COMPONENT, START_POINT);
+        std::sort(best_starts.rbegin(), best_starts.rend());
         while (best_starts.size() > BEST_POINTS_SIZE)
             best_starts.pop_back();
 //        std::cout << "CROSSSS " << F1 << " " << F2 << " " << fit_cost(t) << std::endl;
@@ -767,10 +783,12 @@ namespace GA {
             }
         for (int i = 0; i < REAP; ++i)
             scent[i] = buf[i];
-        if (gen()%100 < CHANCE_HARE) {
-            int i = gen()%REAP;
-            std::swap(scent[0], scent[i]);
-        }
+//        if (gen()%100 < CHANCE_HARE) {
+//            int i = gen()%REAP;
+//            std::swap(scent[0], scent[i]);
+//        }
+        if (gen()%100 < CHANCE_HARE)
+            scent[1] = GLOBAL;
 
 //        std::cout << "harvested" << std::endl;
 //        for (int i = 0; i < REAP; ++i)
@@ -800,6 +818,9 @@ namespace GA {
                 << double(CUR_GEN_CNT_FIRST_MUTATION)/double(OVERALL_GEN) << std::endl;
             std::cout << CUR_GEN_CNT_THIRD_MUTATION << " " << OVERALL_GEN << " "
                 << double(CUR_GEN_CNT_THIRD_MUTATION)/double(OVERALL_GEN) << std::endl;
+
+            if (best_starts.size())
+                std::cout << best_starts[0].first << " " << best_starts[0].second << std::endl;
 
             CUR_GEN_CNT_FIRST_PHASE = 0;
             CUR_GEN_CNT_SECOND_PHASE = 0;
@@ -844,15 +865,17 @@ namespace GA {
                 mn = std::min(mn, fit_cost(scent[j]));
             }
             std::cout << NOFIMAGE << " Generation #" << CUR_GEN << " " << sum << " " << mn << std::endl;
+            std::cout << "MINIMUM " << fit_cost(GLOBAL) << std::endl;
 //            system("pause");
 
         }
 
         std::cout << "\n\n\n";
-        scent[0].write();
+        GLOBAL.write();
+
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
-            GA_ans[i][j] = scent[0].perm[i][j];
+            GA_ans[i][j] = GLOBAL.perm[i][j];
     }
 }
 
