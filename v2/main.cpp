@@ -514,7 +514,7 @@ namespace GA {
             }
 
             ///second phase
-            if (1 == 0){
+            {
 //                TimeLogger second_phase_time(&sphase_time);
                 suitable.clear();
 
@@ -701,11 +701,6 @@ namespace GA {
             std::cout << NOFIMAGE << " Generation #" << CUR_GEN << " " << sum << " " << mn << std::endl;
             std::cout << "MINIMUM " << fit_cost(GLOBAL) << std::endl;
 //            system("pause");
-            out << NOFIMAGE+CUR_GEN << ".png\n";
-            for (int i = 0; i < cntsq; ++i)
-            for (int j = 0; j < cntsq; ++j)
-                out << scent[0].perm[i][j] << " ";
-            out << "\n";
         }
 
         std::cout << "\n\n\n";
@@ -742,7 +737,7 @@ int main() {
         GA::recalc();
 
         GA::genetic_algorithm(ans_out);
-    return 0;
+
         ans_out << std::to_string(n) << ".png" << std::endl;
         for (int i = 0; i < cntsq; ++i)
         for (int j = 0; j < cntsq; ++j)
