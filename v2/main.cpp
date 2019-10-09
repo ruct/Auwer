@@ -316,9 +316,6 @@ struct TimeLogger {
         *target += ld(clock()-start)/ld(CLOCKS_PER_SEC);
     }
 };
-ld fphase_time;
-ld sphase_time;
-ld tphase_time;
 
 int CUR_GEN;
 chromo GLOBAL;
@@ -747,9 +744,7 @@ int main() {
         for (int j = 0; j < cntsq; ++j)
             ans_out << GA::GA_ans[i][j] << " ";
         ans_out << std::endl;
-
-        std::cout << "\n\n";
-        std::cout << fphase_time << "\n" << sphase_time << "\n" << tphase_time << std::endl;
+        std::cout << "\n";
     }
 //    std::cout << dfans_prefix << "\n";
 //    std::ifstream dfans_in(dfans_prefix);
