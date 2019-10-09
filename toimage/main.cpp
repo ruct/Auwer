@@ -46,16 +46,17 @@ int main(int argc, char *argv[]) {
         img_in.close();
 
         std::ifstream ans_in(ans_read_path.toStdString());
+//        if (ans_in.fail())
         std::string trash;
         while (std::getline(ans_in, trash))
             if (trash == QString::number(NUMBER).toStdString()+".png")
                 break;
 
         std::cout << "reading permutation" << std::endl;
-        for (int j = 0; j < cntsq; ++j, std::cout << std::endl)
+        for (int j = 0; j < cntsq; ++j)
             for (int i = 0; i < cntsq; ++i){
                 int pos; ans_in >> pos;
-                std::cout << pos << " ";
+                if (!j) std::cout << pos << " ";
 
                 int ni = pos/cntsq, nj = pos%cntsq;
 
@@ -64,6 +65,7 @@ int main(int argc, char *argv[]) {
                         res.setPixelColor(i*size+y, j*size+x, Image[nj*size+y][ni*size+x]);
                     }
             }
+        std::cout << std::endl;
 
         QImageWriter writer(img_write_path);
         std::cout << "came here" << std::endl;
