@@ -211,6 +211,7 @@ namespace ga {
         void write();
         kernel();
 
+        vector <int> const& get_edge() const { return edge; }
         vector <int> const& get_plan() const { return plan; }
         int located() const { return CNTSQ*CNTSQ-int(plan.size()); }
 
@@ -261,11 +262,62 @@ namespace ga {
 
 }
 
+//  chromosome shifting
+namespace ga {
+    void shiftR(chromo& t) {
+        for (int i = 0; i < CNTSQ; ++i) {
+            int buf = t.perm[i][CNTSQ-1];
+            for (int j = CNTSQ-1; j != 0; --j)
+                t.perm[i][j] = t.perm[i][j-1];
+            t.perm[i][0] = buf;
+        }
+    }
+    void shiftD(chromo& t) {
+        for (int j = CNTSQ-1; j > 0; --j) {
+            int buf = t.perm[CNTSQ-1][j];
+            for (int i = CNTSQ-1; i != 0; --i)
+                t.perm[i][j] = t.perm[i-1][j];
+            t.perm[0][j] = buf;
+        }
+    }
+
+    void shiftL(chromo& t) {
+        for (int i = 0; i < CNTSQ; ++i) {
+            int buf = t.perm[i][0];
+            for (int j = 0; j+1 < CNTSQ; --j)
+                t.perm[i][j] = t.perm[i][j+1];
+            t.perm[i][CNTSQ-1] = buf;
+        }
+    }
+    void shiftU(chromo& t) {
+        for (int j = 0; j < CNTSQ; ++j) {
+            int buf = t.perm[0][j];
+            for (int i = 0; i+1 < CNTSQ; ++i)
+                t.perm[i][j] = t.perm[i+1][j];
+            t.perm[CNTSQ-1][j] = buf;
+        }
+    }
+    void shift(chromo& t, int d) {
+        switch (d) {
+            case 0 : shiftR(t);
+            case 1 : shiftL(t);
+            case 2 : shiftD(t);
+            case 3 : shiftU(t);
+        }
+    }
+}
+
 //  genetic operators
 namespace ga {
-    void mutate(chromo& t, std::mt19937& gen);
-    void cross(chromo const& a, chromo const& b, std::mt19937& gen);
+    void mutate(chromo&, std::mt19937&);
+    void cross(population const&, chromo const&, chromo const&, std::mt19937&);
+    void mutate(chromo& t, std::mt19937& gen) {
+    //  Vertical shift chance
+    static const int VSHIFT = 70;
+        if (gen()%100 < VSHIFT) {
 
+        }
+    }
 }
 int main(){
 
