@@ -1,4 +1,6 @@
 #include <tuple>
+#include <future>
+#include <chrono>
 #include <random>
 #include <vector>
 #include <fstream>
@@ -191,15 +193,17 @@ namespace ga {
 const int CORES = 4;
 const int GENS = 100;
 const int POP = 1000;
-const int PREAP = 40;
 const int FSINCE = 10;
+const int PREAP = 20;
+const int MRATE = 5;
+const int ODDS = 5;
 
 //  population & kernel
 namespace ga {
     struct population {
         int nogen;
         vector <chromo> stock;
-
+        vector <chromo> spring;
         void init() {
             nogen = 0;
             stock.resize(POP);
@@ -219,8 +223,9 @@ namespace ga {
         int mnj = TCNTSQ, mxj = -1;
 
     public:
-        void write();
         kernel();
+        void write();
+        void convert(chromo&);
 
         vector <int> const& get_edge() const { return edge; }
         vector <int> const& get_plan() const { return plan; }
@@ -271,6 +276,12 @@ namespace ga {
                 cout << perm[i][j] << "\t";
             cout << endl;
         }
+    }
+    void kernel::convert(chromo& t) {
+        for (int i = 0; i < CNTSQ; ++i)
+        for (int j = 0; j < CNTSQ; ++j)
+            t.perm[i][j] = perm[i+mni][j+mnj];
+        t.eval = -1;
     }
 
 }
@@ -412,14 +423,81 @@ namespace ga {
         std::tie(pi, pj, pid) = ssuit[gen()%ssuit.size()];
         return step.place(pi, pj, pid), true;
     }
+    bool third_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+        auto &edge = step.get_edge(),
+            &plan = step.get_plan();
 
-    void cross(population const& pop, chromo const& a, chromo const& b, std::mt19937& gen) {
+        int pT = edge[gen()%edge.size()];
+        int i = pT/TCNTSQ, j = pT%TCNTSQ;
+        int id = step.get(i, j);
+
+        std::tuple <ld, int, int, int> tsuit;
+        for (int d = 0; d < 4; ++d) {
+            int ni = i+dx[d], nj = j+dy[d];
+            if (!step.can(ni, nj))
+                continue;
+            for (int pid : plan) {
+                ld cur_diss = diss[d][id][pid];
+                auto ctuple = std::make_tuple(cur_diss, ni, nj, pid);
+                tsuit = std::min(tsuit, ctuple);
+            }
+        }
+
+        ld mn_diss;
+        int pi, pj, pid;
+        std::tie(mn_diss, pi, pj, pid) = tsuit;
+        return step.place(pi, pj, pid), true;
+    }
+
+    void cross(population const& pop, chromo const& a, chromo const& b, chromo& t, std::mt19937& gen) {
         kernel step;
         step.place(CNTSQ, CNTSQ, gen()%(CNTSQ*CNTSQ));
 
         while (step.arranged() != CNTSQ*CNTSQ) {
             if (first_phase(pop, a, b, step, gen))
                 continue;
+            if (second_phase(pop, a, b, step, gen))
+                continue;
+            if (third_phase(pop, a, b, step, gen))
+                continue;
+
+            assert(false);
+        }
+        step.convert(t);
+    }
+
+    void preed(population& pop, int l, int r) {
+        std::mt19937 gen; {
+            auto t = std::chrono::high_resolution_clock::now();
+            gen = std::mt19937(t.time_since_epoch().count());
+        }
+        vector <chromo> const& stock = pop.stock;
+        for (int i = l; i <= r; ++i) {
+            int a = gen()%stock.size(),
+                b = gen()%(int(stock.size())-1);
+            if (b >= a) ++b;
+
+            cross(pop, stock[a], stock[b], pop.spring[i], gen);
+        }
+    }
+    void breed(population& pop) {
+        pop.spring.resize(POP-pop.stock.size());
+
+        int each = (POP-pop.stock.size())/CORES;
+        assert(each*CORES == POP-pop.stock.size());
+
+        std::future <void> forks[CORES];
+        for (int i = 0; i < CORES; ++i) {
+            int l = i*each, r = l+each-1;
+            forks[i] = std::async(std::launch::async, preed, std::ref(pop), l, r);
+        }
+        for (int i = 0; i < CORES; ++i)
+            forks[i].get();
+
+        pop.spring.swap(pop.stock);
+        while (pop.spring.size()) {
+            pop.stock.push_back(pop.spring.back());
+            pop.spring.pop_back();
         }
     }
 }
