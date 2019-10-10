@@ -51,9 +51,9 @@ namespace augm {
     void write_int(std::ofstream& out, int val) {
         out.write(reinterpret_cast <char*>(&val), sizeof(val));
     }
-    void read_picture(std::ifstream& in) {
-        int picture_buf[3][WH][WH];
 
+    int picture_buf[3][WH][WH];
+    void read_picture(std::ifstream& in) {
         for (int j = 0; j < WH; ++j)
         for (int i = 0; i < WH; ++i) {
             int cur = read_int(in);
@@ -154,11 +154,18 @@ namespace ga {
             for (int j = 0; j < CNTSQ; ++j)
                 wher[perm[i][j]] = i*CNTSQ+j;
         }
-        void write(std::ofstream& out) const {
+        void write() const {
             for (int i = 0; i < CNTSQ; ++i) {
                 for (int j = 0; j < CNTSQ; ++j)
-                    out << perm[i][j] << "\t";
-                out << endl;
+                    cout << perm[i][j] << " ";
+                cout << endl;
+            }
+        }
+        void write(std::ofstream& out, string s1 = "\t", string s2 = "\n") const {
+            for (int i = 0; i < CNTSQ; ++i) {
+                for (int j = 0; j < CNTSQ; ++j)
+                    out << perm[i][j] << s1;
+                out << s2;
             }
         }
 
@@ -190,7 +197,7 @@ namespace ga {
 }
 
 
-const int CORES = 4;
+const int CORES = 1;
 const int GENS = 100;
 const int POP = 1000;
 const int FSINCE = 10;
@@ -202,6 +209,7 @@ const int ODDS = 5;
 namespace ga {
     struct population {
         int nogen;
+        chromo emin;
         vector <chromo> stock;
         vector <chromo> spring;
         void init() {
@@ -210,6 +218,7 @@ namespace ga {
 
             for (int i = 0; i < POP; ++i)
                 random_chromo(stock[i]);
+            emin = stock[0];
         }
     };
 
@@ -221,19 +230,21 @@ namespace ga {
         int perm[TCNTSQ][TCNTSQ];
         int mni = TCNTSQ, mxi = -1;
         int mnj = TCNTSQ, mxj = -1;
+        bool was[CNTSQ*CNTSQ];
 
     public:
         kernel();
         void write();
         void convert(chromo&);
 
+        bool used(int id) const { return was[id]; }
         vector <int> const& get_edge() const { return edge; }
         vector <int> const& get_plan() const { return plan; }
         int arranged() const { return CNTSQ*CNTSQ-int(plan.size()); }
 
         //  assuming i in [0, TCNTSQ), j in [0, TCNTSQ)
         int get(int i, int j) const { return perm[i][j]; }
-        bool can(int i, int j) const {
+        int can(int i, int j) const {
             if (perm[i][j] != -1)
                 return false;
 
@@ -244,23 +255,38 @@ namespace ga {
             return true;
         }
         void place(int i, int j, int t) {
+//            cout << "placing " << i << " " << j << " " << t << endl;
+//            cout << "alr " << perm[i][j] << endl;
+            if (perm[i][j] != -1)
+                write(), cout << "WTF" << endl;
+
             assert(perm[i][j] == -1);
 
             perm[i][j] = t;
+            mni = std::min(mni, i);
+            mnj = std::min(mnj, j);
+            mxi = std::max(mxi, i);
+            mxj = std::max(mxj, j);
             edge.push_back(i*TCNTSQ+j);
+
+//            cout << "bef erasing" << endl;
             plan.erase(std::find(plan.begin(), plan.end(), t));
+//            cout << "aft erasing" << endl;
 
             vector <int> new_edge;
             for (int pos : edge) {
                 int ei = pos/TCNTSQ,
                     ej = pos%TCNTSQ;
+//                cout << "edge " << ei << " " << ej << endl;
                 int cnt = can(ei+1, ej)+can(ei-1, ej)
                         + can(ei, ej+1)+can(ei, ej-1);
 
-                if (cnt != 4)
+//                cout << cnt << " " << mni << " " << mxi << " " << mnj << " " << mxj << endl;
+                if (cnt != 0)
                     new_edge.push_back(ei*TCNTSQ+ej);
             }
             edge.swap(new_edge);
+            was[t] = true;
         }
     };
     kernel::kernel() {
@@ -281,6 +307,8 @@ namespace ga {
         for (int i = 0; i < CNTSQ; ++i)
         for (int j = 0; j < CNTSQ; ++j)
             t.perm[i][j] = perm[i+mni][j+mnj];
+        for (int i = 0; i < CNTSQ*CNTSQ; ++i)
+            was[i] = false;
         t.eval = -1;
     }
 
@@ -308,7 +336,7 @@ namespace ga {
     void shiftL(chromo& t) {
         for (int i = 0; i < CNTSQ; ++i) {
             int buf = t.perm[i][0];
-            for (int j = 0; j+1 < CNTSQ; --j)
+            for (int j = 0; j+1 < CNTSQ; ++j)
                 t.perm[i][j] = t.perm[i][j+1];
             t.perm[i][CNTSQ-1] = buf;
         }
@@ -336,6 +364,7 @@ namespace ga {
     void mutate(chromo& t, std::mt19937& gen) {
     //  Vertical shift chance
     static const int VSHIFT = 70;
+
         if (gen()%100 < VSHIFT)
             shift(t, gen()&1);
         else
@@ -343,6 +372,12 @@ namespace ga {
     }
 
     bool first_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+//        a.write(), cout << "\n", b.write();
+//        cout << endl << endl;
+//        step.write();
+//        cout << endl;
+//        system("pause");
+
         if (pop.nogen <= FSINCE)
             return false;
         auto& edge = step.get_edge();
@@ -371,19 +406,27 @@ namespace ga {
                     std::max(ni2, nj2) >= CNTSQ)
                     continue;
 
-                if (a.perm[ni1][nj1] == b.perm[ni2][nj2])
+                if (!step.used(a.perm[i][j]) && a.perm[ni1][nj1] == b.perm[ni2][nj2])
                     fsuit.emplace_back(i+dx[d], j+dy[d], a.perm[ni1][nj1]);
             }
         }
 
+//        cout << "we came here" << endl;
         if (fsuit.empty())
             return false;
+
+//        cout << "writing fsuit: \n";
+//        for (auto i : fsuit)
+//            cout << std::get<0> (i) << " " << std::get<1> (i) <<
+//                std::get<2> (i) << endl;
+//        system("pause");
 
         int pi, pj, pid;
         std::tie(pi, pj, pid) = fsuit[gen()%fsuit.size()];
         return step.place(pi, pj, pid), true;
     }
     bool second_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+//        cout << "SECOND PHASE" << endl;
         auto& edge = step.get_edge();
 
         //  {target_place(i, j), target_id}
@@ -391,6 +434,8 @@ namespace ga {
         for (int T = 0; T < edge.size(); ++T) {
             int pT = edge[T];
             int i = pT/TCNTSQ, j = pT%TCNTSQ;
+
+//            cout << T << " " << pT << " " << i << " " << j << endl;
 
             int id = step.get(i, j);
             int p1 = a.wher[id], p2 = b.wher[id];
@@ -401,29 +446,40 @@ namespace ga {
                     continue;
 
                 int ni1 = i1+dx[d], nj1 = j1+dy[d];
-                if (std::min(ni1, nj1) >= 0 || std::max(ni1, nj1) < CNTSQ) {
+//                cout << ni1 << " " << nj1 << endl;
+                if (std::min(ni1, nj1) >= 0 && std::max(ni1, nj1) < CNTSQ) {
+//                    cout << "lol" << endl;
                     int pid = a.perm[ni1][nj1];
-                    if (bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
+                    if (!step.used(pid) && bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
                         ssuit.emplace_back(i+dx[d], j+dy[d], pid);
                 }
 
                 int ni2 = i2+dx[d], nj2 = j2+dy[d];
-                if (std::min(ni2, nj2) >= 0 || std::max(ni2, nj2) < CNTSQ) {
+//                cout << ni2 << " " << nj2 << endl;
+                if (std::min(ni2, nj2) >= 0 && std::max(ni2, nj2) < CNTSQ) {
                     int pid = b.perm[ni2][nj2];
-                    if (bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
+                    if (!step.used(pid) && bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
                         ssuit.emplace_back(i+dx[d], j+dy[d], pid);
                 }
+//                cout << "now " << endl;
             }
         }
+//        cout << "LFEFL " << endl;
 
         if (ssuit.empty())
             return false;
 
+//        for (auto i : ssuit) {
+//            cout << "TTT " << std::get<0>(i) << " " << std::get<1>(i) << " " <<
+//                std::get<2>(i) << endl;
+//        }
         int pi, pj, pid;
         std::tie(pi, pj, pid) = ssuit[gen()%ssuit.size()];
+//        cout << "will place 2nd " << pi << " " << pj << " " << pid << endl;
         return step.place(pi, pj, pid), true;
     }
     bool third_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+//        cout << "THIRD PHASE" << endl;
         auto &edge = step.get_edge(),
             &plan = step.get_plan();
 
@@ -431,11 +487,13 @@ namespace ga {
         int i = pT/TCNTSQ, j = pT%TCNTSQ;
         int id = step.get(i, j);
 
-        std::tuple <ld, int, int, int> tsuit;
+//        cout << "want " << i << " " << j << " " << id << endl;
+        std::tuple <ld, int, int, int> tsuit(1e9, -1, -1, -1);
         for (int d = 0; d < 4; ++d) {
             int ni = i+dx[d], nj = j+dy[d];
             if (!step.can(ni, nj))
                 continue;
+//            cout << "canDD " << ni << " " << nj << endl;
             for (int pid : plan) {
                 ld cur_diss = diss[d][id][pid];
                 auto ctuple = std::make_tuple(cur_diss, ni, nj, pid);
@@ -446,14 +504,24 @@ namespace ga {
         ld mn_diss;
         int pi, pj, pid;
         std::tie(mn_diss, pi, pj, pid) = tsuit;
+//        cout << "will place 3rd " << mn_diss << " " << pi << " " << pj << " " << pid << endl;
         return step.place(pi, pj, pid), true;
     }
 
     void cross(population const& pop, chromo const& a, chromo const& b, chromo& t, std::mt19937& gen) {
         kernel step;
-        step.place(CNTSQ, CNTSQ, gen()%(CNTSQ*CNTSQ));
+//        cout << "crossing" << endl;
+        int bl9 = gen()%(CNTSQ*CNTSQ);
+        step.place(CNTSQ, CNTSQ, bl9);
+//        cout << "placed " << bl9 << " " << step.get_edge()[0] << endl;
 
         while (step.arranged() != CNTSQ*CNTSQ) {
+//            a.write(), cout << "\n", b.write();
+//            step.write();
+//            cout << "\n\n";
+//            system("pause");
+
+
             if (first_phase(pop, a, b, step, gen))
                 continue;
             if (second_phase(pop, a, b, step, gen))
@@ -469,18 +537,21 @@ namespace ga {
     void preed(population& pop, int l, int r) {
         std::mt19937 gen; {
             auto t = std::chrono::high_resolution_clock::now();
-            gen = std::mt19937(t.time_since_epoch().count());
+//            gen = std::mt19937(t.time_since_epoch().count());
+            gen = std::mt19937(3711);
         }
         vector <chromo> const& stock = pop.stock;
         for (int i = l; i <= r; ++i) {
             int a = gen()%stock.size(),
                 b = gen()%(int(stock.size())-1);
             if (b >= a) ++b;
+//            cout << i << " " << a << " " << b << endl;
 
             cross(pop, stock[a], stock[b], pop.spring[i], gen);
         }
     }
     void breed(population& pop) {
+        ++pop.nogen;
         pop.spring.resize(POP-pop.stock.size());
 
         int each = (POP-pop.stock.size())/CORES;
@@ -499,8 +570,73 @@ namespace ga {
             pop.stock.push_back(pop.spring.back());
             pop.spring.pop_back();
         }
+
+        for (chromo const& T : pop.stock)
+            if (T.fit() < pop.emin.fit())
+                pop.emin = T;
+    }
+
+    void truncate(population& pop, std::mt19937& gen) {
+        auto& stock = pop.stock;
+        std::sort(stock.begin(), stock.end(),
+            [](chromo const& a, chromo const& b) {
+                return a.fit() < b.fit();
+            });
+
+        int odds = (ODDS*POP)/100;
+        int retain = (PREAP*POP)/100;
+
+        for (int T = 0; T < odds; ++T) {
+            int i = retain+gen()%(POP-retain);
+            std::swap(stock[retain], stock[i]);
+            ++retain;
+        }
+
+        stock.resize(retain);
+        for (chromo& t : stock)
+            if (gen()%100 < MRATE)
+                mutate(t, gen);
+    }
+
+    chromo overall() {
+        population pop;
+        cout << "initiating" << endl;
+        pop.init();
+
+        for (int T = 0; T < GENS; ++T) {
+            cout << "Generation " << T << endl;
+            truncate(pop, GGEN);
+            cout << "Trunc " << T << endl;
+            breed(pop);
+            cout << "Breed " << T << endl;
+            pop.emin.write();
+            cout << pop.emin.fit() << endl;
+//            system("pause");
+        }
+        return pop.emin;
+    }
+    void print(std::ofstream& out, chromo const& t) {
+        t.write(out, " ", "");
+    }
+}
+
+//  picture & ans paths, etc...
+namespace augm {
+    const string PATH = R"(C:\Users\Main\Base\huawei\parsed\)";
+    const string AUTH = PATH+NAME+"\\"+std::to_string(SIZE);
+    const string MINE = PATH+NAME+"\\"+std::to_string(SIZE)+"\\answers.txt";
+
+    std::ofstream mine(MINE);
+    void solve(int n) {
+        string source = AUTH+"\\"+std::to_string(n)+".txt";
+        std::ifstream image(source, std::ios::binary);
+        read_picture(image);
+        ga::reset(), ga::compute();
+        ga::print(mine, ga::overall());
     }
 }
 int main(){
-
+    std::ios::sync_with_stdio(0);
+    for (int n = NL; n <= NR; ++n)
+        augm::solve(n);
 }
