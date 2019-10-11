@@ -130,7 +130,7 @@ namespace ga {
             for (int j = 0; j < CNTSQ*CNTSQ; ++j)
                 if (p != j && diss[d][p][j] < *b)
                     b = diss[d][p]+j;
-            bbuddy[d][p] = *b;
+            bbuddy[d][p] = b-diss[d][p];
         }
     }
 }
@@ -200,13 +200,15 @@ namespace ga {
 
 
 const int CORES = 5;
-const int GENS = 6;
-const int WAVES = 10;
-const int POP = 1000;
+const int GENS = 40;
+const int WAVES = 1;
+const int POP = 140;
 const int FSINCE = 0;
-const int PREAP = 20;
+const int PREAP = 40;
 const int MRATE = 5;
 const int ODDS = 5;
+const int BPSIZE = 10;
+const int BPRATE = 20;
 
 //  population & kernel
 namespace ga {
@@ -350,6 +352,12 @@ namespace ga {
 
 //  genetic operators
 namespace ga {
+    void print(std::ofstream& out, int nofimage, chromo const& t) {
+        out << nofimage << ".png\n";
+        t.write(out, " ", "");
+        out << endl;
+    }
+
     void mutate(chromo& t, std::mt19937& gen) {
     //  Vertical shift chance
     static const int VSHIFT = 50;
@@ -362,6 +370,14 @@ namespace ga {
 
     bool FLAG = 0;
     bool first_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+        for (int i = 0; i < CNTSQ; ++i)
+        for (int j = 0; j < CNTSQ; ++j) {
+            int rev = a.wher[a.perm[i][j]];
+            int ni = rev/CNTSQ,
+                nj = rev%CNTSQ;
+            assert(ni == i && nj == j);
+        }
+
         if (FLAG) {
             a.write(), cout << "\n", b.write();
             cout << endl << endl;
@@ -383,8 +399,8 @@ namespace ga {
 
             int id = step.get(i, j);
             int p1 = a.wher[id], p2 = b.wher[id];
-            int i1 = p1/TCNTSQ, j1 = p1%TCNTSQ;
-            int i2 = p2/TCNTSQ, j2 = p2%TCNTSQ;
+            int i1 = p1/CNTSQ, j1 = p1%CNTSQ;
+            int i2 = p2/CNTSQ, j2 = p2%CNTSQ;
             for (int d = 0; d < 4; ++d) {
                 if (!step.can(i+dx[d], j+dy[d]))
                     continue;
@@ -406,6 +422,7 @@ namespace ga {
 
         if (fsuit.empty())
             return false;
+//        std::cout << "lolkek" << std::endl;
 
         if (FLAG) {
             cout << "writing fsuit: \n";
@@ -432,8 +449,8 @@ namespace ga {
 
             int id = step.get(i, j);
             int p1 = a.wher[id], p2 = b.wher[id];
-            int i1 = p1/TCNTSQ, j1 = p1%TCNTSQ;
-            int i2 = p2/TCNTSQ, j2 = p2%TCNTSQ;
+            int i1 = p1/CNTSQ, j1 = p1%CNTSQ;
+            int i2 = p2/CNTSQ, j2 = p2%CNTSQ;
             for (int d = 0; d < 4; ++d) {
                 if (!step.can(i+dx[d], j+dy[d]))
                     continue;
@@ -441,6 +458,7 @@ namespace ga {
                 int ni1 = i1+dx[d], nj1 = j1+dy[d];
                 if (std::min(ni1, nj1) >= 0 && std::max(ni1, nj1) < CNTSQ) {
                     int pid = a.perm[ni1][nj1];
+
                     if (!step.used(pid) && bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
                         ssuit.emplace_back(i+dx[d], j+dy[d], pid);
                 }
@@ -472,7 +490,7 @@ namespace ga {
         int i = pT/TCNTSQ, j = pT%TCNTSQ;
         int id = step.get(i, j);
 
-        std::tuple <ld, int, int, int> tsuit(1e9, -1, -1, -1);
+        std::tuple <ld, int, int, int> tsuit(1e15, -1, -1, -1);
         for (int d = 0; d < 4; ++d) {
             int ni = i+dx[d], nj = j+dy[d];
             if (!step.can(ni, nj))
@@ -490,6 +508,11 @@ namespace ga {
         return step.place(pi, pj, pid), true;
     }
 
+    int FPHASE = 0;
+    int SPHASE = 0;
+    int TPHASE = 0;
+    int APHASE = 0;
+    std::ofstream* for_check;
     void cross(population const& pop, chromo const& a, chromo const& b, chromo& t, std::mt19937& gen) {
         kernel step;
         step.place(CNTSQ, CNTSQ, gen()%(CNTSQ*CNTSQ));
@@ -502,12 +525,19 @@ namespace ga {
                 system("pause");
             }
 
-            if (first_phase(pop, a, b, step, gen))
+            ++APHASE;
+            if (first_phase(pop, a, b, step, gen)) {
+                ++FPHASE;
                 continue;
-            if (second_phase(pop, a, b, step, gen))
+            }
+            if (second_phase(pop, a, b, step, gen)) {
+                ++SPHASE;
                 continue;
-            if (third_phase(pop, a, b, step, gen))
+            }
+            if (third_phase(pop, a, b, step, gen)) {
+                ++TPHASE;
                 continue;
+            }
 
             assert(false);
         }
@@ -529,14 +559,23 @@ namespace ga {
     }
     void breed(population& pop) {
         ++pop.nogen;
+
+        FPHASE = 0;
+        SPHASE = 0;
+        TPHASE = 0;
+        APHASE = 0;
+
         pop.spring.resize(POP-pop.stock.size());
 
+        std::vector <int> ends;
         int each = (POP-pop.stock.size())/CORES;
-        assert(each*CORES == POP-pop.stock.size());
+        for (int i = each; i < POP-pop.stock.size(); i += each)
+            ends.push_back(i);
+        ends.back() = POP-pop.stock.size();
 
         std::future <void> forks[CORES];
         for (int i = 0; i < CORES; ++i) {
-            int l = i*each, r = l+each-1;
+            int l = (i ? ends[i-1] : 0), r = ends[i]-1;
             forks[i] = std::async(std::launch::async, preed, std::ref(pop), l, r);
         }
         for (int i = 0; i < CORES; ++i)
@@ -558,7 +597,7 @@ namespace ga {
         for (chromo& t : pop.stock)
             average += t.fit();
         average /= pop.stock.size();
-        cout << "AVERAGE " << average << endl;
+        cout << "AVERAGE " << average << " " << pop.stock.size() << endl;
 
         auto& stock = pop.stock;
         std::sort(stock.begin(), stock.end(),
@@ -591,16 +630,13 @@ namespace ga {
                 cout << nofimage << " Generation " << T << endl;
                 truncate(pop, GGEN);
                 breed(pop);
+                std::cout << "Rate MDA: " << ld(FPHASE)/ld(APHASE) << " " << ld(SPHASE)/ld(APHASE) << " " << ld(TPHASE)/ld(APHASE) << std::endl;
+
                 cout << "fit_min " << pop.emin.fit() << endl;
             }
             pop.init(false);
         }
         return pop.emin;
-    }
-    void print(std::ofstream& out, int nofimage, chromo const& t) {
-        out << nofimage << ".png\n";
-        t.write(out, " ", "");
-        out << endl;
     }
 }
 
@@ -616,6 +652,8 @@ namespace augm {
         std::ifstream image(source, std::ios::binary);
         read_picture(image);
         ga::reset(), ga::compute();
+
+        ga::for_check = &mine;
         ga::print(mine, n, ga::overall(n));
     }
 }
