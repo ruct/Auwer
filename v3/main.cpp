@@ -95,7 +95,7 @@ namespace ga {
         for (int c = 0; c < 3; ++c)
         for (int T = 0; T < SIZE; ++T)
             result += ld(sqr(abs(a[c][T]-b[c][T])));
-        return sqrt(result);
+        return (result);
     }
     void compute() {
         for (int p1 = 0; p1 < CNTSQ*CNTSQ; ++p1)
@@ -202,7 +202,7 @@ namespace ga {
 const int CORES = 5;
 const int GENS = 3;
 const int POP = 1000;
-const int FSINCE = 5;
+const int FSINCE = 0;
 const int PREAP = 20;
 const int MRATE = 5;
 const int ODDS = 5;
@@ -359,7 +359,7 @@ namespace ga {
 namespace ga {
     void mutate(chromo& t, std::mt19937& gen) {
     //  Vertical shift chance
-    static const int VSHIFT = 90;
+    static const int VSHIFT = 50;
 
         if (gen()%100 < VSHIFT)
             shift(t, gen()&1);
@@ -451,7 +451,6 @@ namespace ga {
                 int ni1 = i1+dx[d], nj1 = j1+dy[d];
 //                cout << ni1 << " " << nj1 << endl;
                 if (std::min(ni1, nj1) >= 0 && std::max(ni1, nj1) < CNTSQ) {
-//                    cout << "lol" << endl;
                     int pid = a.perm[ni1][nj1];
                     if (!step.used(pid) && bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
                         ssuit.emplace_back(i+dx[d], j+dy[d], pid);
@@ -545,8 +544,7 @@ namespace ga {
     void preed(population& pop, int l, int r) {
         std::mt19937 gen; {
             auto t = std::chrono::high_resolution_clock::now();
-//            gen = std::mt19937(t.time_since_epoch().count());
-            gen = std::mt19937(3711);
+            gen = std::mt19937(t.time_since_epoch().count());
         }
         vector <chromo> const& stock = pop.stock;
         for (int i = l; i <= r; ++i) {
