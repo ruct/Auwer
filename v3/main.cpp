@@ -17,7 +17,7 @@ std::mt19937 GGEN(3711);
 const int WH = 512;
 const int SIZE = 64;
 const string NAME = "data_test1_blank";
-const int NL = 2400, NR = 2699;
+const int NL = 2400, NR = 2420;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
@@ -181,6 +181,7 @@ namespace ga {
                 if (i+1 < CNTSQ)
                     eval += diss[2][perm[i][j]][perm[i+1][j]];
             }
+            return eval;
         }
     };
 
@@ -192,13 +193,14 @@ namespace ga {
         for (int i = 0; i < CNTSQ; ++i)
         for (int j = 0; j < CNTSQ; ++j)
             trg.perm[i][j] = cont[i*CNTSQ+j];
+        trg.eval = -1;
         trg.make_wher();
     }
 }
 
 
-const int CORES = 1;
-const int GENS = 100;
+const int CORES = 5;
+const int GENS = 20;
 const int POP = 1000;
 const int FSINCE = 10;
 const int PREAP = 20;
@@ -258,7 +260,7 @@ namespace ga {
 //            cout << "placing " << i << " " << j << " " << t << endl;
 //            cout << "alr " << perm[i][j] << endl;
             if (perm[i][j] != -1)
-                write(), cout << "WTF" << endl;
+                write();
 
             assert(perm[i][j] == -1);
 
@@ -307,8 +309,7 @@ namespace ga {
         for (int i = 0; i < CNTSQ; ++i)
         for (int j = 0; j < CNTSQ; ++j)
             t.perm[i][j] = perm[i+mni][j+mnj];
-        for (int i = 0; i < CNTSQ*CNTSQ; ++i)
-            was[i] = false;
+        t.make_wher();
         t.eval = -1;
     }
 
@@ -356,6 +357,8 @@ namespace ga {
             case 2 : shiftD(t);
             case 3 : shiftU(t);
         }
+        t.make_wher();
+        t.eval = -1;
     }
 }
 
@@ -371,12 +374,15 @@ namespace ga {
             shift(t, 2^(gen()&1));
     }
 
+    bool FLAG = 0;
     bool first_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
-//        a.write(), cout << "\n", b.write();
-//        cout << endl << endl;
-//        step.write();
-//        cout << endl;
-//        system("pause");
+        if (FLAG) {
+            a.write(), cout << "\n", b.write();
+            cout << endl << endl;
+            step.write();
+            cout << endl;
+            system("pause");
+        }
 
         if (pop.nogen <= FSINCE)
             return false;
@@ -406,7 +412,7 @@ namespace ga {
                     std::max(ni2, nj2) >= CNTSQ)
                     continue;
 
-                if (!step.used(a.perm[i][j]) && a.perm[ni1][nj1] == b.perm[ni2][nj2])
+                if (!step.used(a.perm[ni1][nj1]) && a.perm[ni1][nj1] == b.perm[ni2][nj2])
                     fsuit.emplace_back(i+dx[d], j+dy[d], a.perm[ni1][nj1]);
             }
         }
@@ -415,18 +421,22 @@ namespace ga {
         if (fsuit.empty())
             return false;
 
-//        cout << "writing fsuit: \n";
-//        for (auto i : fsuit)
-//            cout << std::get<0> (i) << " " << std::get<1> (i) <<
-//                std::get<2> (i) << endl;
-//        system("pause");
+        if (FLAG) {
+            cout << "writing fsuit: \n";
+            for (auto i : fsuit)
+                cout << std::get<0> (i) << " " << std::get<1> (i) <<
+                    std::get<2> (i) << endl;
+            system("pause");
+        }
 
         int pi, pj, pid;
         std::tie(pi, pj, pid) = fsuit[gen()%fsuit.size()];
         return step.place(pi, pj, pid), true;
     }
     bool second_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
-//        cout << "SECOND PHASE" << endl;
+        if (FLAG)
+            cout << "SECOND PHASE" << endl;
+
         auto& edge = step.get_edge();
 
         //  {target_place(i, j), target_id}
@@ -479,7 +489,9 @@ namespace ga {
         return step.place(pi, pj, pid), true;
     }
     bool third_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
-//        cout << "THIRD PHASE" << endl;
+        if (FLAG)
+            cout << "THIRD PHASE" << endl;
+
         auto &edge = step.get_edge(),
             &plan = step.get_plan();
 
@@ -513,14 +525,17 @@ namespace ga {
 //        cout << "crossing" << endl;
         int bl9 = gen()%(CNTSQ*CNTSQ);
         step.place(CNTSQ, CNTSQ, bl9);
-//        cout << "placed " << bl9 << " " << step.get_edge()[0] << endl;
+
+        if (FLAG)
+            cout << "placed " << bl9 << " " << step.get_edge()[0] << endl;
 
         while (step.arranged() != CNTSQ*CNTSQ) {
-//            a.write(), cout << "\n", b.write();
-//            step.write();
-//            cout << "\n\n";
-//            system("pause");
-
+            if (FLAG) {
+                a.write(), cout << "\n", b.write();
+                step.write();
+                cout << "\n\n";
+                system("pause");
+            }
 
             if (first_phase(pop, a, b, step, gen))
                 continue;
@@ -547,7 +562,14 @@ namespace ga {
             if (b >= a) ++b;
 //            cout << i << " " << a << " " << b << endl;
 
+//            cout << "crossing " << pop.nogen << " " << a << " " << b << " " << i << endl;
+//            if (pop.nogen == 11 && a == 229 && b == 88 && i == 3) FLAG = 1;
+//            if (pop.nogen > 10 && gen()%1000 < 50) FLAG = 1;
             cross(pop, stock[a], stock[b], pop.spring[i], gen);
+            FLAG = 0;
+
+//            if (pop.nogen == 11 && a == 229 && b == 88 && i == 3) FLAG = 0;
+//            cout << "crossed" << endl;
         }
     }
     void breed(population& pop) {
@@ -577,6 +599,21 @@ namespace ga {
     }
 
     void truncate(population& pop, std::mt19937& gen) {
+        for (chromo& t : pop.stock) {
+            ld was = t.fit();
+            t.eval = -1;
+            if (t.fit() != was) {
+                cout << t.fit() << " " << was << endl;
+            }
+            assert(t.fit() == was);
+        }
+
+        ld average = 0;
+        for (chromo& t : pop.stock)
+            average += t.fit();
+        average /= pop.stock.size();
+        cout << "AVERAGE " << average << endl;
+
         auto& stock = pop.stock;
         std::sort(stock.begin(), stock.end(),
             [](chromo const& a, chromo const& b) {
@@ -610,13 +647,15 @@ namespace ga {
             breed(pop);
             cout << "Breed " << T << endl;
             pop.emin.write();
-            cout << pop.emin.fit() << endl;
+            cout << pop.stock[0].fit() << endl;
 //            system("pause");
         }
         return pop.emin;
     }
-    void print(std::ofstream& out, chromo const& t) {
+    void print(std::ofstream& out, int nofimage, chromo const& t) {
+        out << nofimage << ".png\n";
         t.write(out, " ", "");
+        out << "\n";
     }
 }
 
@@ -632,7 +671,7 @@ namespace augm {
         std::ifstream image(source, std::ios::binary);
         read_picture(image);
         ga::reset(), ga::compute();
-        ga::print(mine, ga::overall());
+        ga::print(mine, n, ga::overall());
     }
 }
 int main(){
