@@ -15,13 +15,23 @@ using std::endl;
 
 std::mt19937 GGEN(3711+time(NULL));
 const int WH = 512;
-const int SIZE = 32;
+const int SIZE = 16;
 const string NAME = "data_test1_blank";
-const int NL = 2100, NR = 2399;
+const int NL = 1801, NR = 2099;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
 namespace augm {
+    struct TimeLogger {
+        ld start;
+        ld* target;
+        TimeLogger() = delete;
+        explicit TimeLogger(ld* target):
+            target(target), start(clock()) {};
+        ~TimeLogger() {
+            *target += ld(clock()-start)/ld(CLOCKS_PER_SEC);
+        }
+    };
     int read_int(std::ifstream&);
 }
 struct square {
@@ -199,16 +209,14 @@ namespace ga {
 }
 
 
-const int CORES = 5;
+const int CORES = 8;
 const int GENS = 40;
 const int WAVES = 1;
-const int POP = 140;
+const int POP = 200;
 const int FSINCE = 0;
-const int PREAP = 40;
+const int PREAP = 20;
 const int MRATE = 5;
 const int ODDS = 5;
-const int BPSIZE = 10;
-const int BPRATE = 20;
 
 //  population & kernel
 namespace ga {
@@ -350,6 +358,11 @@ namespace ga {
     }
 }
 
+
+ld fphase_time;
+ld sphase_time;
+ld tphase_time;
+
 //  genetic operators
 namespace ga {
     void print(std::ofstream& out, int nofimage, chromo const& t) {
@@ -370,6 +383,8 @@ namespace ga {
 
     bool FLAG = 0;
     bool first_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+        augm::TimeLogger fphase_logger(&fphase_time);
+
         for (int i = 0; i < CNTSQ; ++i)
         for (int j = 0; j < CNTSQ; ++j) {
             int rev = a.wher[a.perm[i][j]];
@@ -422,7 +437,6 @@ namespace ga {
 
         if (fsuit.empty())
             return false;
-//        std::cout << "lolkek" << std::endl;
 
         if (FLAG) {
             cout << "writing fsuit: \n";
@@ -436,6 +450,8 @@ namespace ga {
         return step.place(pi, pj, pid), true;
     }
     bool second_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+        augm::TimeLogger sphase_logger(&sphase_time);
+
         if (FLAG)
             cout << "SECOND PHASE" << endl;
 
@@ -480,6 +496,8 @@ namespace ga {
         return step.place(pi, pj, pid), true;
     }
     bool third_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
+        augm::TimeLogger tphase_logger(&tphase_time);
+
         if (FLAG)
             cout << "THIRD PHASE" << endl;
 
@@ -630,7 +648,8 @@ namespace ga {
                 cout << nofimage << " Generation " << T << endl;
                 truncate(pop, GGEN);
                 breed(pop);
-                std::cout << "Rate MDA: " << ld(FPHASE)/ld(APHASE) << " " << ld(SPHASE)/ld(APHASE) << " " << ld(TPHASE)/ld(APHASE) << std::endl;
+                cout << ld(clock())/ld(CLOCKS_PER_SEC) << " " << fphase_time << " " << sphase_time << " " << tphase_time << endl;
+                cout << "Rate MDA: " << ld(FPHASE)/ld(APHASE) << " " << ld(SPHASE)/ld(APHASE) << " " << ld(TPHASE)/ld(APHASE) << std::endl;
 
                 cout << "fit_min " << pop.emin.fit() << endl;
             }
