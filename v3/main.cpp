@@ -200,11 +200,11 @@ namespace ga {
 
 
 const int CORES = 5;
-const int GENS = 20;
+const int GENS = 10;
 const int POP = 1000;
 const int FSINCE = 10;
 const int PREAP = 20;
-const int MRATE = 5;
+const int MRATE = 20;
 const int ODDS = 5;
 
 //  population & kernel
@@ -317,45 +317,38 @@ namespace ga {
 
 //  chromosome shifting
 namespace ga {
-    void shiftR(chromo& t) {
-        for (int i = 0; i < CNTSQ; ++i) {
-            int buf = t.perm[i][CNTSQ-1];
-            for (int j = CNTSQ-1; j != 0; --j)
-                t.perm[i][j] = t.perm[i][j-1];
-            t.perm[i][0] = buf;
-        }
+    void shiftR(chromo& t, int i) {
+        int buf = t.perm[i][CNTSQ-1];
+        for (int j = CNTSQ-1; j != 0; --j)
+            t.perm[i][j] = t.perm[i][j-1];
+        t.perm[i][0] = buf;
     }
-    void shiftD(chromo& t) {
-        for (int j = CNTSQ-1; j > 0; --j) {
-            int buf = t.perm[CNTSQ-1][j];
-            for (int i = CNTSQ-1; i != 0; --i)
-                t.perm[i][j] = t.perm[i-1][j];
-            t.perm[0][j] = buf;
-        }
+    void shiftD(chromo& t, int j) {
+        int buf = t.perm[CNTSQ-1][j];
+        for (int i = CNTSQ-1; i != 0; --i)
+            t.perm[i][j] = t.perm[i-1][j];
+        t.perm[0][j] = buf;
     }
 
-    void shiftL(chromo& t) {
-        for (int i = 0; i < CNTSQ; ++i) {
-            int buf = t.perm[i][0];
-            for (int j = 0; j+1 < CNTSQ; ++j)
-                t.perm[i][j] = t.perm[i][j+1];
-            t.perm[i][CNTSQ-1] = buf;
-        }
+    void shiftL(chromo& t, int i) {
+        int buf = t.perm[i][0];
+        for (int j = 0; j+1 < CNTSQ; ++j)
+            t.perm[i][j] = t.perm[i][j+1];
+        t.perm[i][CNTSQ-1] = buf;
     }
-    void shiftU(chromo& t) {
-        for (int j = 0; j < CNTSQ; ++j) {
-            int buf = t.perm[0][j];
-            for (int i = 0; i+1 < CNTSQ; ++i)
-                t.perm[i][j] = t.perm[i+1][j];
-            t.perm[CNTSQ-1][j] = buf;
-        }
+    void shiftU(chromo& t, int j) {
+        int buf = t.perm[0][j];
+        for (int i = 0; i+1 < CNTSQ; ++i)
+            t.perm[i][j] = t.perm[i+1][j];
+        t.perm[CNTSQ-1][j] = buf;
     }
     void shift(chromo& t, int d) {
+        int i = GGEN()%CNTSQ;
         switch (d) {
-            case 0 : shiftR(t);
-            case 1 : shiftL(t);
-            case 2 : shiftD(t);
-            case 3 : shiftU(t);
+            case 0 : shiftR(t, i);
+            case 1 : shiftL(t, i);
+            case 2 : shiftD(t, i);
+            case 3 : shiftU(t, i);
         }
         t.make_wher();
         t.eval = -1;
@@ -366,7 +359,7 @@ namespace ga {
 namespace ga {
     void mutate(chromo& t, std::mt19937& gen) {
     //  Vertical shift chance
-    static const int VSHIFT = 70;
+    static const int VSHIFT = 90;
 
         if (gen()%100 < VSHIFT)
             shift(t, gen()&1);
