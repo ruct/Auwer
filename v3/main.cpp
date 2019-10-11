@@ -15,9 +15,9 @@ using std::endl;
 
 std::mt19937 GGEN(3711);
 const int WH = 512;
-const int SIZE = 32;
+const int SIZE = 64;
 const string NAME = "data_test1_blank";
-const int NL = 2100, NR = 2120;
+const int NL = 2400, NR = 2699;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
@@ -95,7 +95,7 @@ namespace ga {
         for (int c = 0; c < 3; ++c)
         for (int T = 0; T < SIZE; ++T)
             result += ld(sqr(abs(a[c][T]-b[c][T])));
-        return (result);
+        return sqrt(result);
     }
     void compute() {
         for (int p1 = 0; p1 < CNTSQ*CNTSQ; ++p1)
@@ -380,6 +380,7 @@ namespace ga {
         if (pop.nogen <= FSINCE)
             return false;
         auto& edge = step.get_edge();
+        auto& plan = step.get_plan();
 
         //  {target_place(i, j), target_id}
         vector <std::tuple <int, int, int> > fsuit;
@@ -557,7 +558,7 @@ namespace ga {
 //            if (pop.nogen == 11 && a == 229 && b == 88 && i == 3) FLAG = 1;
 //            if (pop.nogen > 10 && gen()%1000 < 50) FLAG = 1;
             cross(pop, stock[a], stock[b], pop.spring[i], gen);
-            FLAG = 0;
+//            FLAG = 0;
 
 //            if (pop.nogen == 11 && a == 229 && b == 88 && i == 3) FLAG = 0;
 //            cout << "crossed" << endl;
@@ -638,7 +639,7 @@ namespace ga {
             breed(pop);
             cout << "Breed " << T << endl;
             pop.emin.write();
-            cout << pop.stock[0].fit() << endl;
+            cout << "fit = " << pop.emin.fit() << endl;
 //            system("pause");
         }
         return pop.emin;
