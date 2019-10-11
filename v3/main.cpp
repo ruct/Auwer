@@ -15,9 +15,9 @@ using std::endl;
 
 std::mt19937 GGEN(3711);
 const int WH = 512;
-const int SIZE = 64;
+const int SIZE = 32;
 const string NAME = "data_test1_blank";
-const int NL = 2400, NR = 2420;
+const int NL = 2100, NR = 2120;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
@@ -94,7 +94,7 @@ namespace ga {
         ld result = 0;
         for (int c = 0; c < 3; ++c)
         for (int T = 0; T < SIZE; ++T)
-            result += ld(sqr(a[c][T]-b[c][T]));
+            result += ld(sqr(abs(a[c][T]-b[c][T])));
         return sqrt(result);
     }
     void compute() {
@@ -200,11 +200,11 @@ namespace ga {
 
 
 const int CORES = 5;
-const int GENS = 10;
+const int GENS = 3;
 const int POP = 1000;
-const int FSINCE = 10;
+const int FSINCE = 5;
 const int PREAP = 20;
-const int MRATE = 20;
+const int MRATE = 5;
 const int ODDS = 5;
 
 //  population & kernel
