@@ -17,9 +17,9 @@ std::mt19937 GGEN(3711+time(NULL));
 const int WH = 512;
 const int SIZE = 16;
 const string NAME = "data_test1_blank";
-const int NL = 1914, NR = 1916;
+const int NL = 1801, NR = 1819;
 const int CNTSQ = WH/SIZE;
-typedef long double ld;
+typedef double ld;
 
 namespace augm {
     struct TimeLogger {
@@ -104,7 +104,7 @@ namespace ga {
         ld result = 0;
         for (int c = 0; c < 3; ++c)
         for (int T = 0; T < SIZE; ++T)
-            result += ld(sqr(abs(a[c][T]-b[c][T])));
+            result += ld(cbr(abs(a[c][T]-b[c][T])));
         return sqrt(result);
     }
     void compute() {
@@ -179,40 +179,6 @@ namespace ga {
             }
         }
 
-        #define cassert(a) if (!(a)) throw std::runtime_error("MDA")
-        void check() const {
-            try {
-                char us[CNTSQ*CNTSQ];
-                for (int i = 0; i < CNTSQ*CNTSQ; ++i)
-                    us[i] = 0;
-                for (int i = 0; i < CNTSQ; ++i)
-                for (int j = 0; j < CNTSQ; ++j) {
-                    cassert(perm[i][j] >= 0 && perm[i][j] < CNTSQ*CNTSQ);
-                    cassert(!us[perm[i][j]]);
-                    us[perm[i][j]] = 1;
-                }
-
-                for (int i = 0; i < CNTSQ*CNTSQ; ++i) {
-                    cassert(us[i] == 1);
-
-                    int x = wher[i]/CNTSQ,
-                        y = wher[i]%CNTSQ;
-                    cassert(perm[x][y] == i);
-                }
-            } catch (...) {
-                cout << "CH0" << endl;
-                for (int i = 0; i < CNTSQ; ++i) {
-                    for (int j = 0; j < CNTSQ; ++j)
-                        cout << perm[i][j] << " ";
-                    cout << "\n";
-                }
-                cout << endl;
-                for (int i = 0; i < CNTSQ*CNTSQ; ++i)
-                    cout << wher[i] << " ";
-                cout << endl;
-                system("pause");
-            }
-        }
         ld fit() const {
             if (eval != -1)
                 return eval;
@@ -220,21 +186,11 @@ namespace ga {
             eval = 0;
             for (int i = 0; i < CNTSQ; ++i)
             for (int j = 0; j < CNTSQ; ++j) {
-                if (j+1 < CNTSQ) {
+                if (j+1 < CNTSQ)
                     eval += diss[0][perm[i][j]][perm[i][j+1]];
-                    if (diss[0][perm[i][j]][perm[i][j+1]] < 0) {
-                        std::cout << perm[i][j] << " " << perm[i][j+1] << std::endl;
-                        system("pause");
-
-                    }
-                    assert(diss[0][perm[i][j]][perm[i][j+1]] >= 0);
-                }
-                if (i+1 < CNTSQ) {
+                if (i+1 < CNTSQ)
                     eval += diss[2][perm[i][j]][perm[i+1][j]];
-                    assert(diss[0][perm[i][j]][perm[i+1][j]] >= 0);
-                }
             }
-            assert(eval >= 0);
             return eval;
         }
     };
@@ -250,15 +206,26 @@ namespace ga {
         trg.eval = -1;
         trg.make_wher();
     }
+    void few_swaps(chromo& trg, int swaps, std::mt19937& gen) {
+        for (int T = 0; T < swaps; ++T) {
+            int i1 = gen()%CNTSQ, j1 = gen()%CNTSQ,
+                i2 = gen()%CNTSQ, j2 = gen()%CNTSQ;
+
+            std::swap(trg.wher[trg.perm[i1][j1]],
+                    trg.wher[trg.perm[i2][j2]]);
+            std::swap(trg.perm[i1][j1], trg.perm[i2][j2]);
+        }
+        trg.eval = -1;
+    }
 }
 
 
 const int CORES = 8;
-const int GENS = 30;
+const int GENS = 60;
 const int WAVES = 1;
-const int POP = 300;
-const int FSINCE = 5;
-const int PREAP = 30;
+const int POP = 150;
+const int FSINCE = 25;
+const int PREAP = 40;
 const int MRATE = 5;
 const int ODDS = 5;
 
@@ -273,10 +240,8 @@ namespace ga {
             nogen = 0;
             stock.resize(POP);
 
-            for (int i = 0; i < POP; ++i) {
+            for (int i = 0; i < POP; ++i)
                 random_chromo(stock[i]);
-                stock[i].check();
-            }
             if (emin_reset)
                 emin = stock[0];
         }
@@ -341,11 +306,11 @@ namespace ga {
         }
     };
     kernel::kernel() {
+        for (int i = 0; i < CNTSQ*CNTSQ; ++i)
+            was[i] = 0;
         for (int i = 0; i < TCNTSQ; ++i)
         for (int j = 0; j < TCNTSQ; ++j)
             perm[i][j] = -1;
-        for (int i = 0; i < CNTSQ*CNTSQ; ++i)
-            was[i] = false;
         plan.resize(CNTSQ*CNTSQ);
         std::iota(plan.begin(), plan.end(), 0);
     }
@@ -429,7 +394,7 @@ namespace ga {
     void mutate(chromo& t, std::mt19937& gen) {
     //  Vertical shift chance
     static const int VSHIFT = 50;
-
+//        few_swaps(t, 15, gen);
         if (gen()%100 < VSHIFT)
             shift(t, gen()&1);
         else
@@ -463,12 +428,9 @@ namespace ga {
             int p1 = a.wher[id], p2 = b.wher[id];
             int i1 = p1/CNTSQ, j1 = p1%CNTSQ;
             int i2 = p2/CNTSQ, j2 = p2%CNTSQ;
-
-            bool empty_nearby = false;
             for (int d = 0; d < 4; ++d) {
                 if (!step.can(i+dx[d], j+dy[d]))
                     continue;
-                empty_nearby = true;
 
                 int ni1 = i1+dx[d], nj1 = j1+dy[d];
                 if (std::min(ni1, nj1) < 0 ||
@@ -483,7 +445,6 @@ namespace ga {
                 if (!step.used(a.perm[ni1][nj1]) && a.perm[ni1][nj1] == b.perm[ni2][nj2])
                     fsuit.emplace_back(i+dx[d], j+dy[d], a.perm[ni1][nj1]);
             }
-            assert(empty_nearby);
         }
 
         if (fsuit.empty())
@@ -584,8 +545,6 @@ namespace ga {
     std::ofstream* for_check;
     void cross(population const& pop, chromo const& a, chromo const& b, chromo& t, std::mt19937& gen) {
         kernel step;
-        a.check(), b.check();
-
         step.place(CNTSQ, CNTSQ, gen()%(CNTSQ*CNTSQ));
 
         while (step.arranged() != CNTSQ*CNTSQ) {
@@ -629,7 +588,6 @@ namespace ga {
         }
     }
     void breed(population& pop) {
-        cout << "breed1" << endl;
         ++pop.nogen;
 
         FPHASE = 0;
@@ -643,26 +601,15 @@ namespace ga {
         int each = (POP-pop.stock.size())/CORES;
         for (int i = each; i < POP-pop.stock.size(); i += each)
             ends.push_back(i);
-
-        if (ends.size() > CORES) {
-            ends.pop_back();
-        }
         ends.back() = POP-pop.stock.size();
-        cout << "D " << ends.back() << " " << ends.size() << endl;
 
         std::future <void> forks[CORES];
         for (int i = 0; i < CORES; ++i) {
             int l = (i ? ends[i-1] : 0), r = ends[i]-1;
-//            cout << "SGE " << i << " " << l << " " << r << endl;
             forks[i] = std::async(std::launch::async, preed, std::ref(pop), l, r);
         }
         for (int i = 0; i < CORES; ++i)
             forks[i].get();
-//        cout << "survived" << endl;
-        for (int i = 0; i < pop.spring.size(); ++i) {
-//            cout << ":M " << i << endl;
-            pop.spring[i].check();
-        }
 
         pop.spring.swap(pop.stock);
         while (pop.spring.size()) {
@@ -673,11 +620,9 @@ namespace ga {
         for (chromo const& T : pop.stock)
             if (T.fit() < pop.emin.fit())
                 pop.emin = T;
-        cout << "breed2" << endl;
     }
 
     void truncate(population& pop, std::mt19937& gen) {
-        cout << "trunc1" << endl;
         ld average = 0;
         for (chromo& t : pop.stock)
             average += t.fit();
@@ -703,7 +648,6 @@ namespace ga {
         for (chromo& t : stock)
             if (gen()%100 < MRATE)
                 mutate(t, gen);
-        cout << "trunc2" << endl;
     }
 
     chromo overall(int nofimage = -1) {
