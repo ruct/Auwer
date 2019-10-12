@@ -17,7 +17,7 @@ std::mt19937 GGEN(3711+time(NULL));
 const int WH = 512;
 const int SIZE = 16;
 const string NAME = "data_test1_blank";
-const int NL = 1810, NR = 2099;
+const int NL = 2100, NR = 2149;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
@@ -212,9 +212,9 @@ namespace ga {
 const int CORES = 8;
 const int GENS = 40;
 const int WAVES = 1;
-const int POP = 150;
+const int POP = 140;
 const int FSINCE = 0;
-const int PREAP = 20;
+const int PREAP = 40;
 const int MRATE = 5;
 const int ODDS = 5;
 
