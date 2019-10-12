@@ -17,7 +17,7 @@ std::mt19937 GGEN(3711+time(NULL));
 const int WH = 512;
 const int SIZE = 16;
 const string NAME = "data_test1_blank";
-const int NL = 1801, NR = 2099;
+const int NL = 1810, NR = 2099;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
@@ -212,7 +212,7 @@ namespace ga {
 const int CORES = 8;
 const int GENS = 40;
 const int WAVES = 1;
-const int POP = 200;
+const int POP = 150;
 const int FSINCE = 0;
 const int PREAP = 20;
 const int MRATE = 5;
@@ -384,14 +384,6 @@ namespace ga {
     bool FLAG = 0;
     bool first_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
         augm::TimeLogger fphase_logger(&fphase_time);
-
-        for (int i = 0; i < CNTSQ; ++i)
-        for (int j = 0; j < CNTSQ; ++j) {
-            int rev = a.wher[a.perm[i][j]];
-            int ni = rev/CNTSQ,
-                nj = rev%CNTSQ;
-            assert(ni == i && nj == j);
-        }
 
         if (FLAG) {
             a.write(), cout << "\n", b.write();
@@ -615,7 +607,7 @@ namespace ga {
         for (chromo& t : pop.stock)
             average += t.fit();
         average /= pop.stock.size();
-        cout << "AVERAGE " << average << " " << pop.stock.size() << endl;
+//        cout << "AVERAGE " << average << " " << pop.stock.size() << endl;
 
         auto& stock = pop.stock;
         std::sort(stock.begin(), stock.end(),
@@ -640,18 +632,17 @@ namespace ga {
 
     chromo overall(int nofimage = -1) {
         population pop;
-        cout << "initiating" << endl;
+//        cout << "initiating" << endl;
         pop.init();
 
         for (int E = 0; E < WAVES; ++E) {
             for (int T = 0; T < GENS; ++T) {
-                cout << nofimage << " Generation " << T << endl;
+//                cout << nofimage << " Generation " << T << endl;
                 truncate(pop, GGEN);
                 breed(pop);
-                cout << ld(clock())/ld(CLOCKS_PER_SEC) << " " << fphase_time << " " << sphase_time << " " << tphase_time << endl;
-                cout << "Rate MDA: " << ld(FPHASE)/ld(APHASE) << " " << ld(SPHASE)/ld(APHASE) << " " << ld(TPHASE)/ld(APHASE) << std::endl;
+//                cout << "Rate MDA: " << ld(FPHASE)/ld(APHASE) << " " << ld(SPHASE)/ld(APHASE) << " " << ld(TPHASE)/ld(APHASE) << std::endl;
 
-                cout << "fit_min " << pop.emin.fit() << endl;
+//                cout << "fit_min " << pop.emin.fit() << endl;
             }
             pop.init(false);
         }
@@ -667,6 +658,8 @@ namespace augm {
 
     std::ofstream mine(MINE);
     void solve(int n) {
+        cout << "solving " << n << endl;
+
         string source = AUTH+"\\"+std::to_string(n)+".txt";
         std::ifstream image(source, std::ios::binary);
         read_picture(image);
@@ -674,6 +667,7 @@ namespace augm {
 
         ga::for_check = &mine;
         ga::print(mine, n, ga::overall(n));
+        cout << ld(clock())/ld(CLOCKS_PER_SEC) << " " << fphase_time << " " << sphase_time << " " << tphase_time << endl;
     }
 }
 int main(){
