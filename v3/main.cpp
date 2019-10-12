@@ -17,7 +17,7 @@ std::mt19937 GGEN(3711+time(NULL));
 const int WH = 512;
 const int SIZE = 16;
 const string NAME = "data_test1_blank";
-const int NL = 1801, NR = 1819;
+const int NL = 1850, NR = 1869;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
