@@ -4,15 +4,22 @@
 #include <QImageWriter>
 #include <QCoreApplication>
 
+//  image properties
+//  wh - square's side of picture in pix.
+//  size - square's side of puzzle's fragment in pix.
+//  name - folder with parsed images
+//  nl, nr - segment of what to solve
+//  cntsq - square's side of picture in fragments
 const int WH = 512;
 const int size = 64;
 const QString name = "data_train";
 const int cntsq = WH/size;
 const int NL = 1200, NR = 1230;
 
+//  read int from bytes
 int read_int(std::ifstream& in) {
     int val;
-    in.read(reinterpret_cast<char *>(&val), sizeof(val));
+    in.read(reinterpret_cast<char*>(&val), sizeof(val));
     return val;
 }
 
@@ -20,11 +27,14 @@ QColor Image[WH][WH];
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
 
+    //  path - directory with parsed images
+    //          and file for results
+    QString path = R"(C:\Users\Main\Base\huawei\parsed\)";
     for (int NUMBER = NL; NUMBER <= NR; ++NUMBER) {
-        QString img_write_path = R"(C:\Users\Main\Base\huawei\img_results\)"+QString::number(NUMBER)+".png";
-        QString img_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
+        QString img_write_path = path + "img_results\\"+QString::number(NUMBER)+".png";
+        QString img_read_path = path + name + "\\" +
                 QString::number(size) + "\\" + QString::number(NUMBER) + ".txt";
-        QString ans_read_path = R"(C:\Users\Main\Base\huawei\parsed\)" + name + "\\" +
+        QString ans_read_path = path + name + "\\" +
                 QString::number(size) + "\\answers.txt";
 
         std::cout << img_read_path.toStdString() << std::endl;
@@ -46,12 +56,12 @@ int main(int argc, char *argv[]) {
         img_in.close();
 
         std::ifstream ans_in(ans_read_path.toStdString());
-//        if (ans_in.fail())
         std::string trash;
         while (std::getline(ans_in, trash))
             if (trash == QString::number(NUMBER).toStdString()+".png")
                 break;
 
+        //  gathering the picture
         std::cout << "reading permutation" << std::endl;
         for (int j = 0; j < cntsq; ++j)
             for (int i = 0; i < cntsq; ++i){
@@ -67,8 +77,8 @@ int main(int argc, char *argv[]) {
             }
         std::cout << std::endl;
 
+        //  writing to png
         QImageWriter writer(img_write_path);
-        std::cout << "came here" << std::endl;
         writer.write(res);
     }
 }
