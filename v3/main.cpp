@@ -16,8 +16,8 @@ using std::endl;
 std::mt19937 GGEN(3711+time(NULL));
 const int WH = 512;
 const int SIZE = 64;
-const string NAME = "data_test1_blank";
-const int NL = 2400, NR = 2699;
+const string NAME = "data_test2_blank";
+const int NL = 3300, NR = 3599;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
 
@@ -367,12 +367,11 @@ namespace ga {
         }
     }
     void shift(chromo& t, int d) {
-        switch (d) {
-            case 0 : shiftR(t);
-            case 1 : shiftL(t);
-            case 2 : shiftD(t);
-            case 3 : shiftU(t);
-        }
+        if (d == 0) shiftR(t);
+        if (d == 1) shiftL(t);
+        if (d == 2) shiftD(t);
+        if (d == 3) shiftU(t);
+
         t.make_wher();
         t.eval = -1;
     }
