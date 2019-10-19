@@ -14,14 +14,27 @@ using std::cout;
 using std::endl;
 
 std::mt19937 GGEN(3711+time(NULL));
+
+//  image properties
+//  wh - square's side of picture in pix.
+//  size - square's side of puzzle's fragment in pix.
+//  name - folder with parsed images
+//  nl, nr - segment of what to solve
+//  cntsq - square's side of picture in fragments
 const int WH = 512;
 const int SIZE = 64;
 const string NAME = "data_test2_blank";
 const int NL = 3300, NR = 3599;
 const int CNTSQ = WH/SIZE;
 typedef double ld;
+//  auxiliary functions
+namespace augm {};
+//  algorithm
+namespace ga {};
 
 namespace augm {
+    //  class linked with a variable where
+    //  it adds its lifetime when destructing
     struct TimeLogger {
         ld start;
         ld* target;
@@ -32,8 +45,9 @@ namespace augm {
             *target += ld(clock()-start)/ld(CLOCKS_PER_SEC);
         }
     };
-    int read_int(std::ifstream&);
 }
+
+//  container for the picture
 struct square {
     int p[3][SIZE][SIZE];
     square() {
@@ -53,6 +67,7 @@ struct square {
 //  reading picture
 square PICTURE[CNTSQ][CNTSQ];
 namespace augm {
+    //  read\writing int from\to bytes
     int read_int(std::ifstream& in) {
         int val;
         in.read(reinterpret_cast <char*>(&val), sizeof(val));
@@ -84,8 +99,12 @@ namespace augm {
 namespace ga {
     int dx[] = {0, 0, 1, -1},
         dy[] = {1, -1, 0, 0};
-    //L->R, R->L, U->D, D->U;
+    //  L->R, R->L, U->D, D->U;
+
+    //  best-buddy id' for {direction, id}
     int bbuddy[4][CNTSQ*CNTSQ];
+
+    //  dissimilarity {spatial relation, id, id'}
     ld diss[4][CNTSQ*CNTSQ][CNTSQ*CNTSQ];
 
     void reset() {
@@ -100,6 +119,7 @@ namespace ga {
 #define sqr(a) ((a)*(a))
 #define cbr(a) ((a)*(a)*(a))
 
+    //  metric for dissimilarity
     inline ld metric(int a[3][SIZE], int b[3][SIZE]) {
         ld result = 0;
         for (int c = 0; c < 3; ++c)
@@ -107,6 +127,8 @@ namespace ga {
             result += ld(cbr(abs(a[c][T]-b[c][T])));
         return sqrt(result);
     }
+
+    //  diss, bbuddy calcing
     void compute() {
         for (int p1 = 0; p1 < CNTSQ*CNTSQ; ++p1)
         for (int p2 = 0; p2 < CNTSQ*CNTSQ; ++p2) {
@@ -147,6 +169,7 @@ namespace ga {
 
 //  chromosome
 namespace ga {
+    //  represents potential solution
     struct chromo {
         int perm[CNTSQ][CNTSQ];
         int wher[CNTSQ*CNTSQ];
@@ -179,6 +202,7 @@ namespace ga {
             }
         }
 
+        //  fitness function
         ld fit() const {
             if (eval != -1)
                 return eval;
@@ -219,7 +243,15 @@ namespace ga {
     }
 }
 
-
+//  constants impacting the accuracy
+//  cores - number of threads to split into
+//  gens - number of generations till termination
+//  waves - number of GA runs
+//  pop - population's size
+//  fsince - no. of generation when the first phase enables
+//  preap - elitist selection's ratio
+//  mrate - mutation rate
+//  odds - random individuals' ratio
 const int CORES = 8;
 const int GENS = 60;
 const int WAVES = 1;
@@ -231,10 +263,14 @@ const int ODDS = 5;
 
 //  population & kernel
 namespace ga {
+    // represents current population
     struct population {
         int nogen;
         chromo emin;
+
+        //  current generation
         vector <chromo> stock;
+        //  off-springs
         vector <chromo> spring;
         void init(bool emin_reset = true) {
             nogen = 0;
@@ -247,12 +283,16 @@ namespace ga {
         }
     };
 
+    //  container of incomplete chromo
     const int TCNTSQ = 2*CNTSQ+1;
     struct kernel {
 
     private:
+        //  current border; ids left to place
         vector <int> edge, plan;
         int perm[TCNTSQ][TCNTSQ];
+
+        //  current borders
         int mni = TCNTSQ, mxi = -1;
         int mnj = TCNTSQ, mxj = -1;
         bool was[CNTSQ*CNTSQ];
@@ -328,10 +368,9 @@ namespace ga {
         t.make_wher();
         t.eval = -1;
     }
-
 }
 
-//  chromosome shifting
+//  chromo shifting
 namespace ga {
     void shiftR(chromo& t) {
         for (int i = 0; i < CNTSQ; ++i) {
@@ -377,7 +416,7 @@ namespace ga {
     }
 }
 
-
+//  times spent on different phases
 ld fphase_time;
 ld sphase_time;
 ld tphase_time;
@@ -390,28 +429,17 @@ namespace ga {
         out << endl;
     }
 
+    //  mutation operator
     void mutate(chromo& t, std::mt19937& gen) {
     //  Vertical shift chance
     static const int VSHIFT = 50;
-//        few_swaps(t, 15, gen);
         if (gen()%100 < VSHIFT)
             shift(t, gen()&1);
         else
             shift(t, 2^(gen()&1));
     }
 
-    bool FLAG = 0;
     bool first_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
-//        augm::TimeLogger fphase_logger(&fphase_time);
-
-        if (FLAG) {
-            a.write(), cout << "\n", b.write();
-            cout << endl << endl;
-            step.write();
-            cout << endl;
-            system("pause");
-        }
-
         if (pop.nogen <= FSINCE)
             return false;
         auto& edge = step.get_edge();
@@ -441,6 +469,7 @@ namespace ga {
                     std::max(ni2, nj2) >= CNTSQ)
                     continue;
 
+                //  parental consent (2-agreement)
                 if (!step.used(a.perm[ni1][nj1]) && a.perm[ni1][nj1] == b.perm[ni2][nj2])
                     fsuit.emplace_back(i+dx[d], j+dy[d], a.perm[ni1][nj1]);
             }
@@ -449,23 +478,12 @@ namespace ga {
         if (fsuit.empty())
             return false;
 
-        if (FLAG) {
-            cout << "writing fsuit: \n";
-            for (auto i : fsuit)
-                cout << std::get<0> (i) << " " << std::get<1> (i) << " " << std::get<2> (i) << endl;
-            system("pause");
-        }
-
         int pi, pj, pid;
         std::tie(pi, pj, pid) = fsuit[gen()%fsuit.size()];
         return step.place(pi, pj, pid), true;
     }
+
     bool second_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
-//        augm::TimeLogger sphase_logger(&sphase_time);
-
-        if (FLAG)
-            cout << "SECOND PHASE" << endl;
-
         auto& edge = step.get_edge();
 
         //  {target_place(i, j), target_id}
@@ -493,6 +511,8 @@ namespace ga {
                 int ni2 = i2+dx[d], nj2 = j2+dy[d];
                 if (std::min(ni2, nj2) >= 0 && std::max(ni2, nj2) < CNTSQ) {
                     int pid = b.perm[ni2][nj2];
+
+                    //  1-agreement & best-buddy
                     if (!step.used(pid) && bbuddy[d][id] == pid && bbuddy[d^1][pid] == id)
                         ssuit.emplace_back(i+dx[d], j+dy[d], pid);
                 }
@@ -507,11 +527,6 @@ namespace ga {
         return step.place(pi, pj, pid), true;
     }
     bool third_phase(population const& pop, chromo const& a, chromo const& b, kernel& step, std::mt19937& gen) {
-//        augm::TimeLogger tphase_logger(&tphase_time);
-
-        if (FLAG)
-            cout << "THIRD PHASE" << endl;
-
         auto &edge = step.get_edge(),
             &plan = step.get_plan();
 
@@ -527,6 +542,8 @@ namespace ga {
             for (int pid : plan) {
                 ld cur_diss = diss[d][id][pid];
                 auto ctuple = std::make_tuple(cur_diss, ni, nj, pid);
+
+                //  greedy approach
                 tsuit = std::min(tsuit, ctuple);
             }
         }
@@ -537,23 +554,18 @@ namespace ga {
         return step.place(pi, pj, pid), true;
     }
 
+    //  no. of phases' functions' calls
     int FPHASE = 0;
     int SPHASE = 0;
     int TPHASE = 0;
     int APHASE = 0;
-    std::ofstream* for_check;
+
+    //  cross-over operator
     void cross(population const& pop, chromo const& a, chromo const& b, chromo& t, std::mt19937& gen) {
         kernel step;
         step.place(CNTSQ, CNTSQ, gen()%(CNTSQ*CNTSQ));
 
         while (step.arranged() != CNTSQ*CNTSQ) {
-            if (FLAG) {
-                a.write(), cout << "\n", b.write();
-                step.write();
-                cout << "\n\n";
-                system("pause");
-            }
-
             ++APHASE;
             if (first_phase(pop, a, b, step, gen)) {
                 ++FPHASE;
@@ -573,6 +585,7 @@ namespace ga {
         step.convert(t);
     }
 
+    //  distributed breed
     void preed(population& pop, int l, int r) {
         std::mt19937 gen; {
             auto t = std::chrono::high_resolution_clock::now();
@@ -586,6 +599,8 @@ namespace ga {
             cross(pop, stock[a], stock[b], pop.spring[i], gen);
         }
     }
+
+    //  population growth
     void breed(population& pop) {
         ++pop.nogen;
 
@@ -602,6 +617,7 @@ namespace ga {
             ends.push_back(i);
         ends.back() = POP-pop.stock.size();
 
+        //  threads
         std::future <void> forks[CORES];
         for (int i = 0; i < CORES; ++i) {
             int l = (i ? ends[i-1] : 0), r = ends[i]-1;
@@ -621,12 +637,12 @@ namespace ga {
                 pop.emin = T;
     }
 
+    //  selection operator
     void truncate(population& pop, std::mt19937& gen) {
         ld average = 0;
         for (chromo& t : pop.stock)
             average += t.fit();
         average /= pop.stock.size();
-//        cout << "AVERAGE " << average << " " << pop.stock.size() << endl;
 
         auto& stock = pop.stock;
         std::sort(stock.begin(), stock.end(),
@@ -649,20 +665,15 @@ namespace ga {
                 mutate(t, gen);
     }
 
-    chromo overall(int nofimage = -1) {
+    //  evolution
+    chromo overall() {
         population pop;
-//        cout << "initiating" << endl;
         pop.init();
 
         for (int E = 0; E < WAVES; ++E) {
             for (int T = 0; T < GENS; ++T) {
-//                cout << nofimage << " Generation " << T << endl;
                 truncate(pop, GGEN);
                 breed(pop);
-//                cout << "Rate MDA: " << ld(FPHASE)/ld(APHASE) << " " << ld(SPHASE)/ld(APHASE) << " " << ld(TPHASE)/ld(APHASE) << std::endl;
-//                cout << ld(clock())/ld(CLOCKS_PER_SEC) << " " << fphase_time << " " << sphase_time << " " << tphase_time << endl;
-
-//                cout << "fit_min " << pop.emin.fit() << endl;
             }
             pop.init(false);
         }
@@ -670,8 +681,12 @@ namespace ga {
     }
 }
 
-//  picture & ans paths, etc...
 namespace augm {
+    //  input\output vars
+    //  path - directory with parsed images
+    //          and file for results
+    //  auth - sources (parsed images) directory
+    //  mine - file where to write results
     const string PATH = R"(C:\Users\Main\Base\huawei\parsed\)";
     const string AUTH = PATH+NAME+"\\"+std::to_string(SIZE);
     const string MINE = PATH+NAME+"\\"+std::to_string(SIZE)+"\\answers.txt";
@@ -685,8 +700,7 @@ namespace augm {
         read_picture(image);
         ga::reset(), ga::compute();
 
-        ga::for_check = &mine;
-        ga::print(mine, n, ga::overall(n));
+        ga::print(mine, n, ga::overall());
         cout << ld(clock())/ld(CLOCKS_PER_SEC) << " " << fphase_time << " " << sphase_time << " " << tphase_time << endl;
     }
 }
