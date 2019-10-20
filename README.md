@@ -29,7 +29,7 @@ My solution is based on **Genetic algorithm**. It's made up of a few repeating s
 ## Aspects
 -----------------------
 The algorithm implements and augments the ideas of article *An Automatic Solver for Very Large Jigsaw Puzzles
-Using Genetic Algorithms* prepared by *Dror Sholomon · Eli (Omid) David · Nathan S. Netanyahu*.
+Using Genetic Algorithms* prepared by *Dror Sholomon, Eli (Omid) David, Nathan S. Netanyahu*.
 
 Information about genetic operators:
 
