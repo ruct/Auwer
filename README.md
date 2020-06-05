@@ -62,7 +62,7 @@ After fitting constants the *neighbor comparison* measurement of packs was:
 It's seen that genetic algorithm gives near-perfect result on less than about **500** fragments, but then accuracy gradually falls.
 ## Author
 ---------
-The whole project was contributed by me, [**Kiryl Shyrma**](https://bitbucket.org/ltry), **HSE Moscow**.
+The whole project was contributed by me, [**Kiryl Shyrma**](https://github.com/ruct), **HSE Moscow**.
 
 This **Jigsaw-solver** was developed for the following contest: [**HONORCUP**](https://codeforces.com/honorcup), where more than two hundreds of individuals and teams participated, i took the [**31st place**](https://codeforces.com/contest/1235/standings).
 ## Future plans
@@ -77,4 +77,4 @@ Project's still in development, the main goals are:
 
 ## Contact
 --------------
-For any queries/issues regarding the project, you can contact me at **flyce32@yandex.ru** or at **@flyce32** (Telegram).
+For any queries/issues regarding the project, you can contact me at **pufbsd@gmail.com** or at **@flyce32** (Telegram).
